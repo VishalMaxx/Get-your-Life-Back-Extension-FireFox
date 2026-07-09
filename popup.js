@@ -2056,7 +2056,11 @@ function setupProfileListeners() {
       if (isFirefox) {
         rateUrl = "https://addons.mozilla.org/en-US/firefox/addon/focus-wellbeing-companion/";
       }
-      window.open(rateUrl, "_blank");
+      if (isExtension) {
+        chrome.tabs.create({ url: rateUrl });
+      } else {
+        window.open(rateUrl, "_blank");
+      }
     });
   }
 
