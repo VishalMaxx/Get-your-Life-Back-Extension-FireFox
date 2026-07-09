@@ -1,4 +1,6 @@
-importScripts('config.js', 'LifeScoreCalculator.js', 'InterventionSignalAggregator.js', 'EngagementSignalCalculator.js', 'WorkProfileEngine.js', 'QuickFocusEngine.js', 'QuickFocusSkipEngine.js', 'ExitBehaviorEngine.js', 'WebEntitlementEngine.js', 'HeartbeatEngine.js', 'WellbeingRemindersEngine.js');
+if (typeof importScripts !== 'undefined') {
+  importScripts('config.js', 'LifeScoreCalculator.js', 'InterventionSignalAggregator.js', 'EngagementSignalCalculator.js', 'WorkProfileEngine.js', 'QuickFocusEngine.js', 'QuickFocusSkipEngine.js', 'ExitBehaviorEngine.js', 'WebEntitlementEngine.js', 'HeartbeatEngine.js', 'WellbeingRemindersEngine.js');
+}
 
 
 // Helper to escape regex special characters
