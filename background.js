@@ -247,7 +247,8 @@ function friendlyAuthError(rawMessage) {
 async function signInWithGoogle() {
   let redirectUri = chrome.identity.getRedirectURL(); // e.g. https://<ext-id>.chromiumapp.org/
   if (redirectUri.includes('identity.getfirefox.com')) {
-    redirectUri = redirectUri.replace('https://identity.getfirefox.com/', 'http://127.0.0.1/mozoauth2/');
+    const uuid = redirectUri.split('.')[0].replace('https://', '');
+    redirectUri = `http://127.0.0.1/mozoauth2/${uuid}`;
   }
   const nonce = Math.random().toString(36).substring(2, 15);
   const clientId = FIREBASE_CONFIG.googleClientId;
@@ -273,12 +274,17 @@ async function signInWithGoogle() {
 
         // Exchange Google ID Token for Firebase credentials
         const exchangeUrl = `https://identitytoolkit.googleapis.com/v1/accounts:signInWithIdp?key=${FIREBASE_CONFIG.apiKey}`;
+        let firebaseRequestUri = redirectUri;
+        if (redirectUri.includes('127.0.0.1/mozoauth2/')) {
+          firebaseRequestUri = `https://${FIREBASE_CONFIG.projectId}.firebaseapp.com/__/auth/handler`;
+        }
+
         const response = await fetch(exchangeUrl, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             postBody: `id_token=${googleIdToken}&providerId=google.com`,
-            requestUri: redirectUri,
+            requestUri: firebaseRequestUri,
             returnIdpCredential: true,
             returnSecureToken: true
           })
@@ -860,7 +866,7 @@ async function mergeProtocolRuns(pulledRecords) {
 // LifeScoreCalculator (see recalculateScores()'s own architecture note).
 async function checkWorkProfileFocusCompletions() {
   const result = await chrome.storage.local.get([
-    'work_profile', 'work_profile_focus_snapshot', 'work_profile_reward_history'
+    'work_profile', 'work_profile_focus_snapshot', 'work_profile_reward_history', 'extension_score_events'
   ]);
   const now = new Date();
   const profile = result.work_profile;
@@ -875,17 +881,21 @@ async function checkWorkProfileFocusCompletions() {
   const updates = { work_profile_focus_snapshot: nextSnapshot };
   if (completed.length > 0) {
     const history = result.work_profile_reward_history || [];
+    const shadowEvents = result.extension_score_events || [];
     let anyAwarded = false;
     for (const { id, dateKey, window } of completed) {
       const points = WorkProfileEngine.focusBonusPoints(window);
       if (points > 0) {
         history.push({ timestamp: Date.now(), points, windowId: id, dateKey });
         anyAwarded = true;
-        await recordExtensionScoreEvent('work_profile_reward', { sovereigntyDelta: points });
+        upsertExtensionScoreEvent(shadowEvents, buildExtensionScoreEvent('work_profile_reward', { sovereigntyDelta: points }));
       }
     }
     if (anyAwarded) {
+      // History + shadow land in ONE set() — a worker death can no longer strand
+      // points in the local score that the cross-platform shadow never heard about.
       updates.work_profile_reward_history = history;
+      updates.extension_score_events = shadowEvents;
       console.log(`Work Profile FOCUS window(s) completed: ${completed.length}, bonus points credited.`);
     }
   }
@@ -893,6 +903,8 @@ async function checkWorkProfileFocusCompletions() {
   await chrome.storage.local.set(updates);
   if (updates.work_profile_reward_history) {
     await recalculateScores();
+    // Push the shadow NOW, not on the next 5-min alarm — the worker may idle before it.
+    syncFirestoreLoop().catch(err => console.error("Post-award sync failed:", err));
   }
 }
 
@@ -918,16 +930,12 @@ async function checkWorkProfileFocusCompletions() {
 //                                                         // (a Kotlin port of it, not a sum).
 //     minutesUsedAfterSkip }                              // quick_focus_skip only, else null
 
-// Appends one normalized event to the local shadow array. `docId` is optional — pass a STABLE
-// id (not a fresh random one) when a later call needs to UPDATE this same event rather than
-// create a new one (see the skip-penalty provisional -> finalized flow below).
-async function recordExtensionScoreEvent(source, fields, docId) {
-  const result = await chrome.storage.local.get(['extension_score_events']);
-  const events = result.extension_score_events || [];
-  const id = docId || generateSyncId();
-  const existingIdx = events.findIndex((e) => e.docId === id);
-  const entry = {
-    docId: id,
+// Builds one normalized shadow entry. `docId` is optional — pass a STABLE id (not a fresh
+// random one) when a later call needs to UPDATE this same event rather than create a new
+// one (see the skip-penalty provisional -> finalized flow below).
+function buildExtensionScoreEvent(source, fields, docId) {
+  return {
+    docId: docId || generateSyncId(),
     source,
     updatedAt: Date.now(),
     sovereigntyDelta: fields.sovereigntyDelta || 0,
@@ -936,12 +944,120 @@ async function recordExtensionScoreEvent(source, fields, docId) {
     minutesUsedAfterSkip: typeof fields.minutesUsedAfterSkip === 'number' ? fields.minutesUsedAfterSkip : null,
     synced: false,
   };
+}
+
+// Pure upsert-by-docId into the shadow array (mutates + returns `events` for chaining).
+function upsertExtensionScoreEvent(events, entry) {
+  const existingIdx = events.findIndex((e) => e.docId === entry.docId);
   if (existingIdx !== -1) {
     events[existingIdx] = entry;
   } else {
     events.push(entry);
   }
+  return events;
+}
+
+// ATOMICITY NOTE (2026-07-09): every award call site now writes its reward-history entry
+// and its shadow event in the SAME chrome.storage.local.set — via the two helpers above —
+// instead of two separate writes in inconsistent orders. A worker death between two writes
+// used to leave the extension's own score (reads the histories) and the cross-platform
+// shadow (reads extension_score_events) permanently disagreeing — which Android then
+// faithfully replayed as a "wrong" score. This standalone read-modify-write variant remains
+// only for callers with no history write of their own.
+async function recordExtensionScoreEvent(source, fields, docId) {
+  const result = await chrome.storage.local.get(['extension_score_events']);
+  const events = upsertExtensionScoreEvent(
+    result.extension_score_events || [], buildExtensionScoreEvent(source, fields, docId)
+  );
   await chrome.storage.local.set({ extension_score_events: events });
+}
+
+// ── ONE-TIME SHADOW BACKFILL (fixes the "Android shows the OLD score" bug) ──
+// extensionScoreEvents shipped in v1.1.0 recording only NEW awards going forward — every
+// bonus earned before that lived solely in the local *_reward_history arrays and was never
+// pushed to Firestore, so Android's replay systematically under-counted by the user's
+// entire pre-1.1.0 history and could never converge. This walks the four histories ONCE
+// and seeds the shadow array with any entry that has no shadow event yet, stamped with the
+// entry's ORIGINAL timestamp — the skip penalty is an order-dependent decaying-heat replay
+// and Android's yesterday-vs-now cutoffs both key off updatedAt, so backdating is load-
+// bearing, not cosmetic. (The Android app re-pulls this collection from 0 via its bumped
+// `extensionScoreEvents.v2` watermark key so the backdated docs aren't skipped.)
+//
+// IDEMPOTENT three ways: skips dedup by the same stable `qfskip_<ts>` docId the live path
+// uses; rewards dedup by consuming an existing same-source shadow event with matching
+// deltas within a ±10s window (a live shadow is recorded in the same call as its history
+// entry, so they're at most ms apart); and the done-flag — written atomically WITH the
+// seeded events — stops re-runs. A crash before the set() re-runs cleanly; Firestore
+// upserts by docId, so even a double-push cannot duplicate.
+async function backfillExtensionScoreEvents() {
+  const result = await chrome.storage.local.get([
+    'score_events_backfill_v1_done', 'extension_score_events',
+    'quick_focus_reward_history', 'quick_focus_skip_history',
+    'work_profile_reward_history', 'wellbeing_reward_history',
+  ]);
+  if (result.score_events_backfill_v1_done) return;
+
+  const events = result.extension_score_events || [];
+  // Live shadow events not yet matched to a history entry, per source. Each vouches for
+  // exactly ONE history entry (consumed on match) so k already-shadowed rewards out of N
+  // history entries backfill exactly N−k events.
+  const unmatched = { quick_focus_reward: [], work_profile_reward: [], wellbeing_reward: [] };
+  events.forEach((e) => { if (unmatched[e.source]) unmatched[e.source].push(e); });
+  const MATCH_WINDOW_MS = 10000;
+  const consumeMatch = (source, timestamp, matches) => {
+    const pool = unmatched[source];
+    const idx = pool.findIndex((e) => Math.abs(e.updatedAt - timestamp) <= MATCH_WINDOW_MS && matches(e));
+    if (idx === -1) return false;
+    pool.splice(idx, 1);
+    return true;
+  };
+
+  const added = [];
+  (result.quick_focus_reward_history || []).forEach((r, i) => {
+    if (consumeMatch('quick_focus_reward', r.timestamp, (e) => e.sovereigntyDelta === (r.points || 0))) return;
+    added.push({
+      docId: `bf_qfr_${r.timestamp}_${i}`, source: 'quick_focus_reward', updatedAt: r.timestamp,
+      sovereigntyDelta: r.points || 0, complianceDelta: 0, clarityDelta: 0,
+      minutesUsedAfterSkip: null, synced: false,
+    });
+  });
+  (result.work_profile_reward_history || []).forEach((r, i) => {
+    if (consumeMatch('work_profile_reward', r.timestamp, (e) => e.sovereigntyDelta === (r.points || 0))) return;
+    added.push({
+      docId: `bf_wpr_${r.timestamp}_${i}`, source: 'work_profile_reward', updatedAt: r.timestamp,
+      sovereigntyDelta: r.points || 0, complianceDelta: 0, clarityDelta: 0,
+      minutesUsedAfterSkip: null, synced: false,
+    });
+  });
+  (result.wellbeing_reward_history || []).forEach((r, i) => {
+    const matches = (e) => e.sovereigntyDelta === (r.sovereigntyDelta || 0) &&
+      e.complianceDelta === (r.complianceDelta || 0) && e.clarityDelta === (r.clarityDelta || 0);
+    if (consumeMatch('wellbeing_reward', r.timestamp, matches)) return;
+    added.push({
+      docId: `bf_wb_${r.timestamp}_${i}`, source: 'wellbeing_reward', updatedAt: r.timestamp,
+      sovereigntyDelta: r.sovereigntyDelta || 0, complianceDelta: r.complianceDelta || 0,
+      clarityDelta: r.clarityDelta || 0, minutesUsedAfterSkip: null, synced: false,
+    });
+  });
+  // Skips carry a STABLE id in the live path — docId identity IS the dedup here.
+  (result.quick_focus_skip_history || []).forEach((r) => {
+    const docId = `qfskip_${r.timestamp}`;
+    if (events.some((e) => e.docId === docId)) return;
+    added.push({
+      docId, source: 'quick_focus_skip', updatedAt: r.timestamp,
+      sovereigntyDelta: 0, complianceDelta: 0, clarityDelta: 0,
+      minutesUsedAfterSkip: typeof r.minutesUsedAfterSkip === 'number' ? r.minutesUsedAfterSkip : null,
+      synced: false,
+    });
+  });
+
+  await chrome.storage.local.set({
+    extension_score_events: events.concat(added),
+    score_events_backfill_v1_done: true,
+  });
+  if (added.length > 0) {
+    console.log(`Backfilled ${added.length} historical extension score event(s) into the sync shadow.`);
+  }
 }
 
 // ── WELLBEING TOOLS (Eye Rest 20-20-20 + Water Break) ──
@@ -1054,8 +1170,9 @@ async function completeWellbeingReminder(type) {
   const award = WellbeingRemindersEngine.computeCompletionAward(reminder.completedCount);
   reminder.completedCount = award.newCount;
 
-  const result = await chrome.storage.local.get(['wellbeing_reward_history']);
+  const result = await chrome.storage.local.get(['wellbeing_reward_history', 'extension_score_events']);
   const history = result.wellbeing_reward_history || [];
+  const shadowEvents = result.extension_score_events || [];
   // No points if notification mode is active, per founder's instruction.
   const anyPoints = !isNotificationMode && (award.clarityDelta || award.complianceDelta || award.sovereigntyDelta);
   if (anyPoints) {
@@ -1063,14 +1180,18 @@ async function completeWellbeingReminder(type) {
       timestamp: Date.now(), type,
       clarityDelta: award.clarityDelta, complianceDelta: award.complianceDelta, sovereigntyDelta: award.sovereigntyDelta,
     });
+    // Same set() as the history write — see the atomicity note above recordExtensionScoreEvent.
+    upsertExtensionScoreEvent(shadowEvents, buildExtensionScoreEvent('wellbeing_reward', {
+      clarityDelta: award.clarityDelta, complianceDelta: award.complianceDelta, sovereigntyDelta: award.sovereigntyDelta,
+    }));
   }
 
-  await chrome.storage.local.set({ wellbeing_tools: config, wellbeing_reward_history: history });
+  const updates = { wellbeing_tools: config, wellbeing_reward_history: history };
+  if (anyPoints) updates.extension_score_events = shadowEvents;
+  await chrome.storage.local.set(updates);
   if (anyPoints) {
-    await recordExtensionScoreEvent('wellbeing_reward', {
-      clarityDelta: award.clarityDelta, complianceDelta: award.complianceDelta, sovereigntyDelta: award.sovereigntyDelta,
-    });
     await recalculateScores();
+    syncFirestoreLoop().catch(err => console.error("Post-award sync failed:", err));
   }
 }
 
@@ -1596,7 +1717,7 @@ async function syncFirestoreLoop() {
     const unsyncedScoreEvents = scoreEvents.filter((e) => !e.synced);
     if (unsyncedScoreEvents.length > 0) {
       console.log(`Pushing ${unsyncedScoreEvents.length} unsynced extension score event(s) to Firestore...`);
-      await pushFirestoreCollectionDocs(uid, "extensionScoreEvents", unsyncedScoreEvents.map((e) => ({
+      const scoreDocs = unsyncedScoreEvents.map((e) => ({
         docId: e.docId,
         payload: {
           source: e.source,
@@ -1607,7 +1728,12 @@ async function syncFirestoreLoop() {
         },
         updatedAt: e.updatedAt,
         deleted: false,
-      })));
+      }));
+      // Chunked: a Firestore commit caps at 500 writes, and the one-time backfill can
+      // legitimately exceed that on a long-lived install. 450 matches Android's page size.
+      for (let i = 0; i < scoreDocs.length; i += 450) {
+        await pushFirestoreCollectionDocs(uid, "extensionScoreEvents", scoreDocs.slice(i, i + 450));
+      }
       
       // Re-read latest score events again right before writing, to preserve any new events recorded during network push
       const finalScoreRes = await chrome.storage.local.get(['extension_score_events']);
@@ -1662,7 +1788,7 @@ async function isEntitledToExtensionPro() {
 // why this is an extension-only post-adjustment rather than a change to the mirrored
 // LifeScoreCalculator itself).
 async function completeQuickFocusSession() {
-  const result = await chrome.storage.local.get(['quick_focus_session', 'quick_focus_reward_history']);
+  const result = await chrome.storage.local.get(['quick_focus_session', 'quick_focus_reward_history', 'extension_score_events']);
   const session = result.quick_focus_session;
   if (!session || session.completed) return;
 
@@ -1672,12 +1798,19 @@ async function completeQuickFocusSession() {
     const history = result.quick_focus_reward_history || [];
     history.push({ timestamp: Date.now(), points: awardedPoints });
     updates.quick_focus_reward_history = history;
-    await recordExtensionScoreEvent('quick_focus_reward', { sovereigntyDelta: awardedPoints });
+    // Same set() as the history write — see the atomicity note above recordExtensionScoreEvent.
+    updates.extension_score_events = upsertExtensionScoreEvent(
+      result.extension_score_events || [],
+      buildExtensionScoreEvent('quick_focus_reward', { sovereigntyDelta: awardedPoints })
+    );
   }
   await chrome.storage.local.set(updates);
   console.log(`Quick Focus session ended (scope=${session.scope}). Bonus points computed: ${awardedPoints}.`);
   await updateBlockerRules();
   await recalculateScores();
+  if (awardedPoints > 0) {
+    syncFirestoreLoop().catch(err => console.error("Post-award sync failed:", err));
+  }
 }
 
 // ── QUICK FOCUS SKIP PASS (early-exit economy) ──
@@ -1704,7 +1837,7 @@ async function startSkipUsageObservation(skipTimestamp, blocklistSnapshot) {
 }
 
 async function tickSkipUsageObservation() {
-  const result = await chrome.storage.local.get(['quick_focus_skip_observation', 'quick_focus_skip_history']);
+  const result = await chrome.storage.local.get(['quick_focus_skip_observation', 'quick_focus_skip_history', 'extension_score_events']);
   const obs = result.quick_focus_skip_observation;
   if (!obs) {
     chrome.alarms.clear("quick_focus_skip_observe_tick");
@@ -1729,12 +1862,21 @@ async function tickSkipUsageObservation() {
     const history = result.quick_focus_skip_history || [];
     const idx = history.findIndex(h => h.timestamp === obs.skipTimestamp);
     if (idx !== -1) history[idx].minutesUsedAfterSkip = accruedMinutes;
-    await chrome.storage.local.set({ quick_focus_skip_history: history, quick_focus_skip_observation: null });
     // Same stable docId as the provisional push in CANCEL_QUICK_FOCUS — this overwrites it
-    // with the real minutesUsedAfterSkip now that observation has finished.
-    await recordExtensionScoreEvent('quick_focus_skip', { minutesUsedAfterSkip: accruedMinutes }, `qfskip_${obs.skipTimestamp}`);
+    // with the real minutesUsedAfterSkip now that observation has finished. History finalize
+    // and shadow finalize land in ONE set() (atomicity note above recordExtensionScoreEvent).
+    const shadowEvents = upsertExtensionScoreEvent(
+      result.extension_score_events || [],
+      buildExtensionScoreEvent('quick_focus_skip', { minutesUsedAfterSkip: accruedMinutes }, `qfskip_${obs.skipTimestamp}`)
+    );
+    await chrome.storage.local.set({
+      quick_focus_skip_history: history,
+      quick_focus_skip_observation: null,
+      extension_score_events: shadowEvents,
+    });
     console.log(`Skip-usage observation finished: ${accruedMinutes} min on a blocked domain after the skip.`);
     await recalculateScores(); // the provisional (floor-severity) penalty is now the real one
+    syncFirestoreLoop().catch(err => console.error("Post-skip-finalize sync failed:", err));
   } else {
     await chrome.storage.local.set({
       quick_focus_skip_observation: Object.assign({}, obs, { accruedMinutes, ticksRemaining })
@@ -2340,7 +2482,8 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     (async () => {
       const { useSkipPass = true, buyMorePasses = false } = request;
       const result = await chrome.storage.local.get([
-        'quick_focus_session', 'quick_focus_skip_balance', 'quick_focus_skip_history', 'blocked_domains'
+        'quick_focus_session', 'quick_focus_skip_balance', 'quick_focus_skip_history', 'blocked_domains',
+        'extension_score_events'
       ]);
       const now = new Date();
       const session = result.quick_focus_session;
@@ -2377,18 +2520,24 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
       const history = result.quick_focus_skip_history || [];
       history.push({ timestamp: now.getTime(), minutesRemaining, minutesUsedAfterSkip: null });
 
+      // Stable docId keyed by the skip's own timestamp — tickSkipUsageObservation's finalize
+      // step re-records under the SAME id once minutesUsedAfterSkip is known, which
+      // overwrites this provisional push in Firestore rather than creating a duplicate event.
+      // History + shadow in ONE set() (atomicity note above recordExtensionScoreEvent).
+      const shadowEvents = upsertExtensionScoreEvent(
+        result.extension_score_events || [],
+        buildExtensionScoreEvent('quick_focus_skip', { minutesUsedAfterSkip: null }, `qfskip_${now.getTime()}`)
+      );
       await chrome.storage.local.set({
         quick_focus_session: ended,
         quick_focus_skip_balance: rolledBalance,
-        quick_focus_skip_history: history
+        quick_focus_skip_history: history,
+        extension_score_events: shadowEvents
       });
-      // Stable docId keyed by the skip's own timestamp — tickSkipUsageObservation's finalize
-      // step (below) re-records under the SAME id once minutesUsedAfterSkip is known, which
-      // overwrites this provisional push in Firestore rather than creating a duplicate event.
-      await recordExtensionScoreEvent('quick_focus_skip', { minutesUsedAfterSkip: null }, `qfskip_${now.getTime()}`);
       await startSkipUsageObservation(now.getTime(), result.blocked_domains || []);
       await updateBlockerRules();
       await recalculateScores(); // provisional penalty (floor severity) counts immediately
+      syncFirestoreLoop().catch(err => console.error("Post-skip sync failed:", err));
       sendResponse({ success: true, method: 'penalty', notice: QuickFocusSkipEngine.EMERGENCY_ONLY_NOTICE });
     })();
     return true;
@@ -2537,10 +2686,15 @@ async function initializeBlocker() {
     }
   });
 
-  // Initial local recalculation and cloud sync
-  recalculateScores().then(() => {
-    syncFirestoreLoop().catch(err => console.error("Startup sync failed:", err));
-  });
+  // One-time historical shadow backfill FIRST, so the startup sync below pushes it —
+  // then the initial local recalculation and cloud sync. Backfill failure never blocks
+  // the normal startup path (it just retries on the next worker start, flag unset).
+  backfillExtensionScoreEvents()
+    .catch(err => console.error("Score-event backfill failed:", err))
+    .then(() => recalculateScores())
+    .then(() => {
+      syncFirestoreLoop().catch(err => console.error("Startup sync failed:", err));
+    });
 
   // Attempt token refresh on startup if user is logged in
   getValidIdToken().then(token => {
