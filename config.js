@@ -8,6 +8,6 @@ const FIREBASE_CONFIG = {
 };
 
 const SUPABASE_CONFIG = {
-  url: "https://hmdzdyuztpgesukewrbe.supabase.co",
-  anonKey: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhtZHpreXV6dHBnZXN1a2V3cmJlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MjExNzUzMzAsImV4cCI6MjAzNjc1MTMzMH0.vO-T166H0pnd6yV2e53wG6x-Z86xO7y1Xy96Y2U6b68"
+  url: "https://zqakkteyhggwseydmsoz.supabase.co",
+  anonKey: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpxYWtrdGV5aGdnd3NleWRtc296Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODAyODI5ODksImV4cCI6MjA5NTg1ODk4OX0.1LCJBWa9YM3Ftlla836qKfnXxSfvirxgnaAdKtZYJ3I"
 };
