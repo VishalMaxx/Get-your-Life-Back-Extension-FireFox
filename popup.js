@@ -2047,6 +2047,83 @@ function setupProfileListeners() {
     });
   }
 
+  // Rate Extension Card
+  const profileRateCard = document.getElementById("profileRateCard");
+  if (profileRateCard) {
+    profileRateCard.addEventListener("click", () => {
+      const isFirefox = typeof InstallTrigger !== 'undefined' || navigator.userAgent.includes('Firefox');
+      let rateUrl = `https://chromewebstore.google.com/detail/focus-wellbeing-companion/${chrome.runtime.id}`;
+      if (isFirefox) {
+        rateUrl = "https://addons.mozilla.org/en-US/firefox/addon/focus-wellbeing-companion/";
+      }
+      window.open(rateUrl, "_blank");
+    });
+  }
+
+  // Suggest a Feature Card
+  const featureSummaryRow = document.getElementById("profileFeatureSummaryRow");
+  const featureCard = document.getElementById("profileFeatureCard");
+  if (featureSummaryRow && featureCard) {
+    featureSummaryRow.addEventListener("click", () => {
+      featureCard.classList.toggle("expanded");
+    });
+  }
+
+  const featureSubmitBtn = document.getElementById("featureSubmitBtn");
+  const featureTextInput = document.getElementById("featureTextInput");
+  const featureStatusMsg = document.getElementById("featureStatusMsg");
+  if (featureSubmitBtn && featureTextInput && featureStatusMsg) {
+    featureSubmitBtn.addEventListener("click", async () => {
+      const text = featureTextInput.value.trim();
+      if (!text) return;
+
+      featureSubmitBtn.disabled = true;
+      featureStatusMsg.style.color = "var(--color-silver-80)";
+      featureStatusMsg.textContent = "Submitting...";
+
+      try {
+        const userState = await new Promise((resolve) => {
+          chrome.storage.local.get(["user_email"], resolve);
+        });
+        const email = userState.user_email || "Anonymous";
+        const isFirefox = typeof InstallTrigger !== 'undefined' || navigator.userAgent.includes('Firefox');
+
+        const response = await fetch(`${SUPABASE_CONFIG.url}/rest/v1/feature_requests`, {
+          method: "POST",
+          headers: {
+            "apikey": SUPABASE_CONFIG.anonKey,
+            "Authorization": `Bearer ${SUPABASE_CONFIG.anonKey}`,
+            "Content-Type": "application/json",
+            "Prefer": "return=minimal"
+          },
+          body: JSON.stringify({
+            content: text,
+            email: email,
+            browser: isFirefox ? "Firefox" : "Chrome"
+          })
+        });
+
+        if (!response.ok) {
+          throw new Error("Supabase insert failed");
+        }
+
+        featureTextInput.value = "";
+        featureStatusMsg.style.color = "var(--color-emerald-50)";
+        featureStatusMsg.textContent = "Thank you for your suggestion!";
+        setTimeout(() => {
+          featureCard.classList.remove("expanded");
+          featureStatusMsg.textContent = "";
+        }, 2000);
+      } catch (err) {
+        console.error("Feature submit error:", err);
+        featureStatusMsg.style.color = "var(--color-red-50)";
+        featureStatusMsg.textContent = "Failed to submit. Try again.";
+      } finally {
+        featureSubmitBtn.disabled = false;
+      }
+    });
+  }
+
   const syncNowBtn = document.getElementById("profileSyncNowBtn");
   if (syncNowBtn) {
     syncNowBtn.addEventListener("click", () => {
