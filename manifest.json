@@ -21,8 +21,7 @@
     "declarativeNetRequest",
     "alarms",
     "identity",
-    "notifications",
-    "offscreen"
+    "notifications"
   ],
   "host_permissions": [
     "<all_urls>"
@@ -44,10 +43,6 @@
   ],
 
   "content_security_policy": {
-    "extension_pages": "script-src 'self'; object-src 'self'; connect-src 'self' https://*.googleapis.com https://*.firebaseapp.com https://securetoken.googleapis.com https://getyourlifeback.app",
-    "sandbox": "sandbox allow-scripts; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://www.google.com/recaptcha/ https://www.gstatic.com/; object-src 'self'"
-  },
-  "sandbox": {
-    "pages": ["sandbox.html"]
+    "extension_pages": "script-src 'self'; object-src 'self'; connect-src 'self' https://*.googleapis.com https://*.firebaseapp.com https://securetoken.googleapis.com https://getyourlifeback.app"
   }
 }
