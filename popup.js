@@ -2087,9 +2087,9 @@ function setupProfileListeners() {
 
       try {
         const userState = await new Promise((resolve) => {
-          chrome.storage.local.get(["user_email"], resolve);
+          chrome.storage.local.get(["authEmail"], resolve);
         });
-        const email = userState.user_email || "Anonymous";
+        const email = userState.authEmail || "Anonymous";
         const isFirefox = typeof InstallTrigger !== 'undefined' || navigator.userAgent.includes('Firefox');
 
         const response = await fetch(`${SUPABASE_CONFIG.url}/rest/v1/feature_requests`, {
