@@ -1,0 +1,513 @@
+@font-face {
+  font-family: 'Space Grotesk';
+  src: url('fonts/space_grotesk_light.ttf') format('truetype');
+  font-weight: 300;
+  font-style: normal;
+}
+@font-face {
+  font-family: 'Space Grotesk';
+  src: url('fonts/space_grotesk_regular.ttf') format('truetype');
+  font-weight: 400;
+  font-style: normal;
+}
+@font-face {
+  font-family: 'Space Grotesk';
+  src: url('fonts/space_grotesk_medium.ttf') format('truetype');
+  font-weight: 500;
+  font-style: normal;
+}
+@font-face {
+  font-family: 'Space Grotesk';
+  src: url('fonts/space_grotesk_semibold.ttf') format('truetype');
+  font-weight: 600;
+  font-style: normal;
+}
+@font-face {
+  font-family: 'Space Grotesk';
+  src: url('fonts/space_grotesk_bold.ttf') format('truetype');
+  font-weight: 700;
+  font-style: normal;
+}
+
+:root {
+  --bg-void: #000000;
+  --color-silver: #FFFFFF;
+  --color-dust-60: #94A3B8;
+  --color-dust-40: #666680;
+  --color-dust-20: #404058;
+  
+  --delta-red: #E5484D;
+  --delta-green: #3DD68C;
+  --number-color: #C8C8C8;
+  --metric-label-color: #9AA0A6;
+  --block-text-color: #7F7F7F;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  font-family: 'Space Grotesk', sans-serif;
+}
+
+html, body {
+  width: 100%;
+  height: 100%;
+  background-color: var(--bg-void);
+  color: var(--color-silver);
+  overflow: hidden;
+}
+
+body {
+  position: relative;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background-repeat: no-repeat;
+  background-size: 100% 100%;
+  transition: background-image 0.5s ease-in-out;
+}
+
+/* ── COLOR DIALS / WASH STATES ── */
+
+/* 1. Red Wash (Reflection/Decision Screen) */
+body.wash-red {
+  background-image: 
+    radial-gradient(ellipse calc(100% * 1.6) 15% at bottom center, 
+      rgba(199, 120, 121, 0.4) 0%, 
+      transparent 100%
+    ),
+    linear-gradient(to top, 
+      #CA191C 0%, 
+      #640D0E 13.5%, 
+      transparent 30%
+    );
+}
+
+/* 2. Transition Wash (Magenta: Blue Wash + strong Red Bloom) */
+body.wash-transition {
+  background-image: 
+    radial-gradient(ellipse calc(100% * 1.6) 15% at bottom center, 
+      rgba(199, 120, 121, 0.7) 0%, /* Stronger red bloom carries heat receding */
+      transparent 100%
+    ),
+    linear-gradient(to top, 
+      #1940CA 0%, /* Core Blue */
+      #0D2064 13.5%, /* Deep Blue */
+      transparent 30%
+    );
+}
+
+/* 3. Calm Blue Wash (Strict Active Block Timer) */
+body.wash-blue {
+  background-image: 
+    radial-gradient(ellipse calc(100% * 1.6) 15% at bottom center, 
+      rgba(120, 137, 199, 0.4) 0%, /* Cool blue bloom */
+      transparent 100%
+    ),
+    linear-gradient(to top, 
+      #1940CA 0%, 
+      #0D2064 13.5%, 
+      transparent 30%
+    );
+}
+
+/* ── CONTENT CONTAINER & VIEWS ── */
+.screen-container {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  max-width: 450px;
+  height: 100%;
+  padding: 40px 28px;
+}
+
+/* Sub-views layout */
+.sub-view {
+  display: none;
+  width: 100%;
+  height: 100%;
+  flex-direction: column;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.sub-view.active {
+  display: flex;
+}
+
+/* ── BACK BUTTON ── */
+.back-btn {
+  align-self: flex-start;
+  background: none;
+  border: none;
+  color: var(--color-silver);
+  font-size: 1rem; /* 16sp */
+  font-weight: 500;
+  cursor: pointer;
+  padding: 10px 0;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.back-btn:hover {
+  opacity: 0.8;
+}
+
+/* ── ELAPSED TIMER ── */
+.timer-header {
+  font-size: 1.5rem; /* 24sp */
+  font-weight: 500;
+  color: var(--color-silver);
+  margin-top: 32px;
+}
+
+/* ── BREATHING CIRCLE CONTAINER ── */
+.breathe-container {
+  flex: 1;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: 100%;
+  margin-bottom: 20px;
+}
+
+.breathe-box {
+  position: relative;
+  width: 240px;
+  height: 240px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.breathe-ring {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  border: 1.5px solid var(--color-silver);
+  border-radius: 50%;
+  animation: breathe-scale 8s infinite ease-in-out;
+  transform-origin: center;
+}
+
+.breathe-phrase {
+  font-size: 1.5rem; /* 24sp */
+  font-weight: 500;
+  text-align: center;
+  line-height: 1.3;
+  color: var(--color-silver);
+  z-index: 2;
+}
+
+@keyframes breathe-scale {
+  0% { transform: scale(0.74); }
+  50% { transform: scale(1.0); }
+  100% { transform: scale(0.74); }
+}
+
+/* ── PICKER & TIMER HEADER ── */
+.picker-header, .timer-header-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+  margin-top: 24px;
+  gap: 16px;
+}
+
+.picker-title {
+  font-size: 2.25rem; /* 36sp */
+  font-weight: 500;
+  color: var(--color-silver);
+  text-align: center;
+}
+
+.app-icon-container {
+  width: 50px;
+  height: 50px;
+  border-radius: 12px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  overflow: hidden;
+}
+
+.picker-app-icon {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+/* ── SCROLL WHEEL PICKER ── */
+.wheel-picker-container {
+  position: relative;
+  width: 100%;
+  height: 250px; /* Tall selection band matches Compose 250.dp */
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  margin: 10px 0;
+}
+
+.wheel-lines {
+  position: absolute;
+  left: 10%;
+  right: 10%;
+  top: 61px; /* 250px / 2 - 64px = 61px */
+  height: 128px; /* lineOffset * 2 = 128px */
+  border-top: 1.5px solid rgba(255, 255, 255, 0.45);
+  border-bottom: 1.5px solid rgba(255, 255, 255, 0.45);
+  pointer-events: none;
+  z-index: 2;
+}
+
+.wheel-scroll {
+  width: 100%;
+  height: 100%;
+  overflow-y: scroll;
+  scroll-snap-type: y mandatory;
+  scrollbar-width: none; /* Hide scrollbar for Firefox */
+  z-index: 1;
+  padding: 61px 0; /* Padding matches selection line bounds */
+  
+  /* Fade out numbers at top/bottom (the real cylinder drum look) */
+  -webkit-mask-image: linear-gradient(to bottom, transparent, rgba(0,0,0,0.3) 15%, rgba(0,0,0,1) 40%, rgba(0,0,0,1) 60%, rgba(0,0,0,0.3) 85%, transparent);
+  mask-image: linear-gradient(to bottom, transparent, rgba(0,0,0,0.3) 15%, rgba(0,0,0,1) 40%, rgba(0,0,0,1) 60%, rgba(0,0,0,0.3) 85%, transparent);
+}
+
+.wheel-scroll::-webkit-scrollbar {
+  display: none; /* Hide scrollbar for Chrome/Brave */
+}
+
+.wheel-item {
+  height: 128px; /* Matches selection lines */
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  font-size: 6rem; /* 96sp numeral */
+  font-weight: 500;
+  color: var(--color-silver);
+  scroll-snap-align: center;
+  cursor: pointer;
+  user-select: none;
+}
+
+.wheel-unit {
+  position: absolute;
+  top: 198px; /* sits just below bottom hairline (189px + 9px) */
+  right: 10%; /* aligns exactly with right edge of hairlines */
+  font-size: 1.25rem; /* 20sp */
+  font-weight: 500;
+  color: var(--color-silver);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  z-index: 2;
+}
+
+/* ── SCORE PREVIEW DELTAS ── */
+.picker-deltas-row {
+  width: 100%;
+  margin-top: 10px;
+}
+
+/* ── APP USAGE PANEL ── */
+.usage-panel {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-top: 20px;
+  gap: 6px;
+}
+
+.usage-title {
+  font-size: 0.95rem; /* 15sp */
+  font-weight: 500;
+  color: var(--color-silver);
+  margin-bottom: 2px;
+}
+
+.usage-row {
+  width: 50%;
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.85rem; /* 13sp */
+}
+
+.usage-lbl {
+  color: var(--metric-label-color);
+}
+
+.usage-val {
+  color: UsageValueColor;
+  font-weight: 500;
+}
+
+/* ── COUNTDOWN DISPLAY (Timer View) ── */
+.countdown-display {
+  flex: 1;
+  display: flex;
+  justify-content: center;
+  align-items: baseline;
+  width: 100%;
+  margin: 40px 0;
+  gap: 8px;
+}
+
+.countdown-num {
+  font-size: 6.5rem; /* Large 104sp countdown */
+  font-weight: 400;
+  color: var(--color-silver);
+}
+
+.countdown-unit {
+  font-size: 1.25rem; /* 20sp label */
+  font-weight: 500;
+  color: var(--color-silver);
+  margin-right: 12px;
+}
+
+/* ── BOTTOM STACK ── */
+.bottom-stack {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.lock-nudge-link {
+  font-size: 1rem; /* 16sp */
+  color: var(--block-text-color);
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 10px;
+  transition: color 0.2s;
+  margin-bottom: 8px;
+}
+
+.lock-nudge-link:hover {
+  color: var(--color-silver);
+}
+
+.choice-button-wrapper {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-bottom: 14px;
+}
+
+/* Choice Buttons */
+.choice-btn {
+  width: 100%;
+  height: 50px;
+  border-radius: 9px;
+  font-size: 1.25rem; /* 20sp */
+  font-weight: 500;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  cursor: pointer;
+  transition: all 0.2s;
+  border: none;
+  outline: none;
+}
+
+/* Translucent */
+.choice-btn.translucent {
+  color: var(--color-silver);
+  background: rgba(255, 255, 255, 0.1064);
+  border: 1px solid rgba(255, 255, 255, 0.1672);
+}
+
+.choice-btn.translucent:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.choice-btn.translucent:not(:disabled):hover {
+  background: rgba(255, 255, 255, 0.18);
+  border-color: rgba(255, 255, 255, 0.3);
+}
+
+/* Solid White */
+.choice-btn.solid-white {
+  color: #000000;
+  background-color: var(--color-silver);
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.25);
+}
+
+.choice-btn.solid-white:hover {
+  background-color: #E2E8F0;
+  box-shadow: 0 6px 14px rgba(0, 0, 0, 0.35);
+}
+
+/* ── SCORE DELTAS (Grid) ── */
+.score-delta-row {
+  width: 100%;
+  display: flex;
+  justify-content: space-evenly;
+  margin-top: 12px;
+  margin-bottom: 12px;
+}
+
+.delta-cell {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.delta-val-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.delta-arrow {
+  font-size: 1.4rem;
+  font-weight: 600;
+}
+
+.delta-arrow.red {
+  color: var(--delta-red);
+}
+
+.delta-arrow.green {
+  color: var(--delta-green);
+}
+
+.delta-num {
+  font-size: 1.5rem;
+  font-weight: 500;
+  color: var(--number-color);
+}
+
+.delta-lbl {
+  font-size: 0.8rem;
+  color: var(--metric-label-color);
+  margin-top: 2px;
+  text-transform: capitalize;
+}
+
+/* Footnote Nudge */
+.footnote-nudge {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 14px;
+  color: var(--block-text-color);
+}
+
+.footnote-nudge svg {
+  fill: none;
+  stroke: var(--block-text-color);
+}
+
+.footnote-text {
+  font-size: 0.75rem;
+  font-weight: 400;
+}

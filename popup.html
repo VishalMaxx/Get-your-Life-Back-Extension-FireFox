@@ -1,0 +1,752 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Get Your Life Back</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <!-- Shared icon gradients — referenced by every nav/feature icon below via url(#id).
+       Kept in one hidden defs block instead of repeating per icon. -->
+  <svg width="0" height="0" style="position: absolute;">
+    <defs>
+      <linearGradient id="gradBlocked" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%" stop-color="#3B82F6"/>
+        <stop offset="100%" stop-color="#22D3EE"/>
+      </linearGradient>
+      <linearGradient id="gradFocus" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%" stop-color="#F97316"/>
+        <stop offset="100%" stop-color="#FBBF24"/>
+      </linearGradient>
+      <linearGradient id="gradWork" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%" stop-color="#8B5CF6"/>
+        <stop offset="100%" stop-color="#6366F1"/>
+      </linearGradient>
+      <linearGradient id="gradProtocol" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%" stop-color="#EF4444"/>
+        <stop offset="100%" stop-color="#EC4899"/>
+      </linearGradient>
+      <linearGradient id="gradProfile" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%" stop-color="#94A3B8"/>
+        <stop offset="100%" stop-color="#E2E8F0"/>
+      </linearGradient>
+      <linearGradient id="gradLock" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%" stop-color="#C49A3C"/>
+        <stop offset="100%" stop-color="#E8C874"/>
+      </linearGradient>
+      <linearGradient id="gradWellbeing" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%" stop-color="#14B8A6"/>
+        <stop offset="100%" stop-color="#22D3EE"/>
+      </linearGradient>
+    </defs>
+  </svg>
+
+  <!-- Ambient Glow Bloom Overlay -->
+  <div class="bloom-overlay"></div>
+
+  <!-- Global Header (Shows on both views, but with different actions) -->
+  <header style="position: relative; z-index: 10;">
+    <div class="header-left">
+      <img src="focus_dashboard_icon.jpg" alt="GYLB Logo" class="logo">
+      <span class="brand-name">GetYourLifeBack</span>
+    </div>
+    <div class="sync-status">
+      <span class="status-dot" id="syncStatusDot"></span>
+      <span id="syncStatusText">Free Tier</span>
+      <button id="connectAccountBtn" class="connect-account-btn">Link Account</button>
+    </div>
+  </header>
+
+  <!-- 1. Sign Up / Sign In View (Shown when user is not authenticated). Defaults to Sign
+       Up — mirrors the Android app's SignUpScreen, which always shows account creation
+       first and lets a returning user switch to "Sign in" (see authMode in popup.js). -->
+  <div class="content-wrapper auth-wrapper" id="authView">
+    <div class="glass-card auth-card">
+      <div class="auth-header">
+        <h2 class="auth-title" id="authTitle">Create your account</h2>
+        <p class="auth-subtitle" id="authSubtitle">Sign up to sync your focus blocks, active protocols, and scorecard with your Android app.</p>
+      </div>
+
+      <div class="auth-form">
+        <div class="form-group">
+          <label class="form-label" for="authEmail">Email Address</label>
+          <input type="email" id="authEmail" class="form-input" placeholder="name@domain.com">
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="authPassword">Password</label>
+          <input type="password" id="authPassword" class="form-input" placeholder="••••••••">
+        </div>
+
+        <div class="auth-error-msg" id="authErrorMsg" style="display: none;"></div>
+
+        <button id="signInBtn" class="auth-submit-btn">
+          <span class="btn-text" id="signInBtnText">Create Account</span>
+          <span class="btn-spinner" id="signInBtnSpinner" style="display: none;"></span>
+        </button>
+
+        <p class="auth-mode-toggle" id="authModeToggle">Already have an account? <a href="#" id="authModeToggleLink">Sign in</a></p>
+
+        <div class="auth-divider">or</div>
+
+        <button id="googleSignInBtn" class="google-auth-btn">
+          <svg class="google-icon" viewBox="0 0 24 24" width="18" height="18" xmlns="http://www.w3.org/2000/svg">
+            <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
+            <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
+            <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z" fill="#FBBC05"/>
+            <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.53 6.2-4.53z" fill="#EA4335"/>
+          </svg>
+          <span class="google-btn-text" id="googleBtnText">Sign up with Google</span>
+          <span class="btn-spinner" id="googleBtnSpinner" style="display: none;"></span>
+        </button>
+
+        <div class="auth-footer">
+          <a href="#" id="backToLocalBtn" class="back-link">Continue in Free Mode</a>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 2. Dashboard View (Shown in Free or Synced mode) -->
+  <div class="content-wrapper" id="dashboardView" style="display: none;">
+    
+    <!-- Score Card Hero Card (Sovereignty Display) -->
+    <div class="glass-card score-card-hero">
+      <div class="score-top-row">
+        <div class="score-top-stat">
+          <span class="score-top-value"><span id="streakValue">0</span><span class="score-top-unit">days</span></span>
+          <span class="score-top-label">Streak</span>
+        </div>
+        <div class="score-top-divider"></div>
+        <div class="score-top-stat">
+          <span class="score-top-value" id="levelValue">1</span>
+          <span class="score-top-label">Level</span>
+        </div>
+      </div>
+
+      <div class="score-center-block">
+        <span class="score-center-label">Your Score</span>
+        <span class="score-center-value" id="sovereigntyValue">--</span>
+        <span class="score-center-sublabel">Sovereignty</span>
+      </div>
+
+      <div class="score-flank-row">
+        <div class="score-flank-stat">
+          <span class="score-flank-value blue" id="clarityValue">50</span>
+          <span class="score-flank-label">Clarity</span>
+        </div>
+        <div class="score-flank-stat">
+          <span class="score-flank-value green" id="complianceValue">65</span>
+          <span class="score-flank-label">Compliance</span>
+        </div>
+      </div>
+
+      <div class="score-yesterday-row">
+        <span class="score-yesterday-heading">Vs Yesterday</span>
+        <div class="score-yesterday-deltas">
+          <div class="score-delta-item">
+            <span class="score-change-badge" id="complianceChangeValue">--</span>
+            <span class="score-delta-lbl">Compliance</span>
+          </div>
+          <div class="score-delta-item">
+            <span class="score-change-badge" id="sovereigntyChangeValue">--</span>
+            <span class="score-delta-lbl">Sovereignty</span>
+          </div>
+          <div class="score-delta-item">
+            <span class="score-change-badge" id="clarityChangeValue">--</span>
+            <span class="score-delta-lbl">Clarity</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Blocked Websites Nav Card (Free) -->
+    <div class="glass-card nav-card" id="navBlockedSites">
+      <div class="nav-card-left">
+        <div class="nav-icon-box">
+          <svg class="nav-icon-svg" viewBox="0 0 24 24" fill="none" stroke="url(#gradBlocked)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/>
+          </svg>
+        </div>
+        <span class="nav-card-title">Blocked Websites</span>
+      </div>
+      <div class="nav-card-right">
+        <span class="nav-card-count" id="blockerCount">0</span>
+        <svg class="nav-card-chevron-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>
+      </div>
+    </div>
+
+    <!-- Quick Focus Session Nav Card (Pro) -->
+    <div class="glass-card nav-card" id="navQuickFocus">
+      <div class="nav-card-left">
+        <div class="nav-icon-box">
+          <svg class="nav-icon-svg" viewBox="0 0 24 24" fill="none" stroke="url(#gradFocus)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="10" x2="14" y1="2" y2="2"/>
+            <line x1="12" x2="15" y1="14" y2="11"/>
+            <circle cx="12" cy="14" r="8"/>
+          </svg>
+        </div>
+        <span class="nav-card-title">Quick Focus Session</span>
+      </div>
+      <div class="nav-card-right">
+        <span class="nav-card-pro-badge">PRO</span>
+        <svg class="nav-card-chevron-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>
+      </div>
+    </div>
+
+    <!-- Work Profile Nav Card (Pro) -->
+    <div class="glass-card nav-card" id="navWorkProfile">
+      <div class="nav-card-left">
+        <div class="nav-icon-box">
+          <svg class="nav-icon-svg" viewBox="0 0 24 24" fill="none" stroke="url(#gradWork)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 12h.01"/>
+            <path d="M16 6V4a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/>
+            <path d="M22 13a18.15 18.15 0 0 1-20 0"/>
+            <rect width="20" height="14" x="2" y="6" rx="2"/>
+          </svg>
+        </div>
+        <span class="nav-card-title">Work Profile</span>
+      </div>
+      <div class="nav-card-right">
+        <span class="nav-card-pro-badge">PRO</span>
+        <svg class="nav-card-chevron-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>
+      </div>
+    </div>
+
+    <!-- Wellbeing Tools Nav Card (Water Break is Free; Eye Rest 20-20-20 is Pro-gated inside) -->
+    <div class="glass-card nav-card" id="navWellbeingTools">
+      <div class="nav-card-left">
+        <div class="nav-icon-box">
+          <svg class="nav-icon-svg" viewBox="0 0 24 24" fill="none" stroke="url(#gradWellbeing)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 2.5s7 8.2 7 12.7a7 7 0 0 1-14 0C5 10.7 12 2.5 12 2.5Z"/>
+          </svg>
+        </div>
+        <span class="nav-card-title">Wellbeing Tools</span>
+      </div>
+      <div class="nav-card-right">
+        <svg class="nav-card-chevron-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>
+      </div>
+    </div>
+
+    <!-- Profile Nav Card (account, sync, exit behavior, legal links) -->
+    <div class="glass-card nav-card" id="navProfile">
+      <div class="nav-card-left">
+        <div class="nav-icon-box">
+          <svg class="nav-icon-svg" viewBox="0 0 24 24" fill="none" stroke="url(#gradProfile)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/>
+            <circle cx="12" cy="7" r="4"/>
+          </svg>
+        </div>
+        <span class="nav-card-title">Profile</span>
+      </div>
+      <div class="nav-card-right">
+        <svg class="nav-card-chevron-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>
+      </div>
+    </div>
+
+    <!-- Today's Protocol Card (Full Pro $9.99/mo only — hidden by default, JS moves it above Blocked Websites) -->
+    <div class="glass-card nav-card protocol-nav-card" id="navTodayProtocol" style="display: none;">
+      <div class="nav-card-left">
+        <div class="nav-icon-box">
+          <svg class="nav-icon-svg" viewBox="0 0 24 24" fill="none" stroke="url(#gradProtocol)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="10"/>
+            <circle cx="12" cy="12" r="6"/>
+            <circle cx="12" cy="12" r="2"/>
+          </svg>
+        </div>
+        <div class="protocol-nav-info">
+          <span class="nav-card-title">Today's Protocol</span>
+          <span class="protocol-nav-subtitle" id="protocolNavSubtitle">No active protocol</span>
+        </div>
+      </div>
+      <div class="nav-card-right">
+        <span class="protocol-nav-timer" id="protocolNavTimer">--:--</span>
+        <svg class="nav-card-chevron-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- 3. Blocklist Subview (Full extension takeover) -->
+  <div class="content-wrapper subview" id="blocklistView" style="display: none;">
+    <div class="subview-header">
+      <button class="subview-back-btn" id="blocklistBackBtn">‹ Back</button>
+      <span class="subview-title">Blocked Websites</span>
+    </div>
+
+    <!-- Add Domain Row -->
+    <div class="glass-card add-domain-card">
+      <input type="text" id="domainInput" class="domain-input" placeholder="e.g. reddit.com">
+      <button id="addDomainBtn" class="add-btn">Block</button>
+    </div>
+
+    <!-- Pro Upsell Card (Only visible when user is free) -->
+    <div class="glass-card qf-pro-upsell-card" id="blocklistProUpsell" style="display: none;">
+      <svg class="upsell-icon-svg" viewBox="0 0 24 24" fill="none" stroke="url(#gradLock)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <rect width="18" height="11" x="3" y="11" rx="2" ry="2"/>
+        <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+      </svg>
+      <div class="upsell-text-content">
+        <span class="upsell-title">Get Pro to schedule website blocks and create work profiles</span>
+      </div>
+      <svg class="nav-card-chevron-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>
+    </div>
+
+    <!-- Scrollable Domain List -->
+    <div class="glass-card domain-list-card">
+      <div class="domain-list" id="domainList">
+        <!-- Rendered dynamically by popup.js -->
+      </div>
+      <div class="domain-list-empty" id="domainListEmpty">
+        <span class="empty-icon">🛡️</span>
+        <span class="empty-text">No websites blocked yet</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- 5. Quick Focus Subview (Full extension takeover) -->
+  <div class="content-wrapper subview" id="quickFocusView" style="display: none;">
+    <div class="subview-header">
+      <button class="subview-back-btn" id="quickFocusBackBtn">‹ Back</button>
+      <span class="subview-title">Quick Focus Session</span>
+    </div>
+
+    <!-- START SCREEN (session not active) -->
+    <div id="qfStartScreen" style="width: 100%;">
+      <!-- Inline Error Panel -->
+      <div id="qfStartError" class="qf-error-msg" style="display: none;"></div>
+
+      <!-- Scope Choice Section -->
+      <div class="glass-card qf-card">
+        <label class="qf-section-label">Block Scope</label>
+        <div class="qf-scope-choices">
+          <div class="qf-scope-option selected" id="qfScopeBlocklist" data-scope="BLOCKLIST">
+            <span class="qf-scope-title">Block List Only</span>
+            <span class="qf-scope-desc">Hard-blocks domains in your block list</span>
+          </div>
+          <div class="qf-scope-option" id="qfScopeAll" data-scope="ALL">
+            <span class="qf-scope-title">Block Everything</span>
+            <span class="qf-scope-desc">Zero exceptions. All distracting websites blocked</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Whitelist Websites Card — an accordion (same idiom as .profile-exit-card) that
+           expands/collapses via the "expanded" class, pushing the Duration card below it
+           down/up instead of popping in and out. Only meaningful for qfScopeAll; fixed at
+           Start and locked for the whole session (see qfActiveWhitelistCard below). -->
+      <div class="glass-card qf-card qf-whitelist-card" id="qfWhitelistCard" style="box-sizing: border-box;">
+        <div class="qf-whitelist-card-inner">
+          <label class="qf-section-label">Allowed Whitelist (Optional)</label>
+          <div class="qf-whitelist-domains" id="qfWhitelistDomains">
+            <!-- Dynamically populated whitelist tags -->
+          </div>
+          <div class="qf-custom-duration-row" style="display: flex; gap: 8px;">
+            <input type="text" id="qfWhitelistInput" class="qf-custom-input" placeholder="e.g. github.com" style="flex: 1;">
+            <button id="qfAddWhitelistBtn" class="qf-action-btn primary" style="width: auto; padding: 0 16px; margin: 0; font-size: 0.75rem; height: 32px; line-height: 32px;">Add</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Duration Choices Section -->
+      <div class="glass-card qf-card">
+        <label class="qf-section-label">Session Duration</label>
+        <div class="qf-duration-presets">
+          <button class="qf-duration-btn selected" data-mins="25">25 min</button>
+          <button class="qf-duration-btn" data-mins="50">50 min</button>
+          <button class="qf-duration-btn" data-mins="90">90 min</button>
+        </div>
+        <div class="qf-custom-duration-row">
+          <input type="number" id="qfCustomMins" class="qf-custom-input" min="1" max="180" placeholder="Custom (1-180 min)">
+        </div>
+      </div>
+
+      <!-- Start Button -->
+      <button id="qfStartBtn" class="qf-action-btn primary">Start Focus Session</button>
+    </div>
+
+    <!-- ACTIVE SCREEN (session running) -->
+    <div id="qfActiveScreen" style="display: none; width: 100%;">
+      <!-- Active Session Status / Timer Card -->
+      <div class="glass-card qf-card qf-timer-card">
+        <div class="qf-timer-val" id="qfTimerDisplay">00:00</div>
+        <div class="qf-timer-subtext">
+          Focus mode active: <span id="qfActiveScopeDisplay" class="qf-scope-badge">BLOCKLIST</span>
+        </div>
+      </div>
+
+      <!-- Whitelisted Websites during Active Session (Read-only, Locked) -->
+      <div class="glass-card qf-card" id="qfActiveWhitelistCard" style="display: none; box-sizing: border-box;">
+        <label class="qf-section-label">🔒 Locked Whitelist</label>
+        <div class="qf-whitelist-domains" id="qfActiveWhitelistDomains" style="display: flex; flex-wrap: wrap; gap: 6px;">
+          <!-- Read-only locked whitelist tags -->
+        </div>
+      </div>
+
+      <!-- Skip Pass Gating Info Card -->
+      <div class="glass-card qf-card">
+        <div class="qf-pass-status-header">
+          <span class="qf-pass-status-title">🛡️ Skip Passes</span>
+          <span class="qf-pass-count-badge" id="qfPassCountDisplay">--</span>
+        </div>
+        <div class="qf-pass-desc" id="qfPassStatusDesc">Loading skip passes...</div>
+      </div>
+
+      <!-- Notice Banner (ALWAYS visible near cancellation/skip actions) -->
+      <div class="qf-notice-banner" id="qfNoticeBanner" style="display: none;">
+        <!-- Will show notices from GET_SKIP_PASS_STATUS or cancel response -->
+      </div>
+
+      <!-- Cancel / Skip Section -->
+      <div id="qfCancelNormalRow">
+        <button id="qfTriggerCancelBtn" class="qf-action-btn danger">Cancel Session</button>
+      </div>
+
+      <!-- Confirmation Step -->
+      <div id="qfCancelConfirmRow" class="glass-card qf-confirm-card" style="display: none; box-sizing: border-box;">
+        <div class="qf-confirm-warning">Are you sure you want to end this session?</div>
+        <div class="qf-confirm-notice" id="qfConfirmNoticeText"></div>
+        <div class="qf-confirm-actions">
+          <button id="qfConfirmCancelBtn" class="qf-action-btn danger-outline">Yes, End Session</button>
+          <button id="qfKeepFocusBtn" class="qf-action-btn secondary">No, Keep Focusing</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- COMPLETION STATE (briefly shown before returning to start screen) -->
+    <div id="qfCompleteScreen" class="glass-card qf-card qf-complete-card" style="display: none; width: 100%;">
+      <div class="qf-complete-icon">🎉</div>
+      <div class="qf-complete-title">Nice work!</div>
+      <div class="qf-complete-desc">Session complete. Any bonus Sovereignty from this session will show up once the scoring hookup for Quick Focus ships.</div>
+    </div>
+  </div>
+
+  <!-- 6. Work Profile Subview (Full extension takeover) -->
+  <div class="content-wrapper subview" id="workProfileView" style="display: none;">
+    <div class="subview-header">
+      <button class="subview-back-btn" id="workProfileBackBtn">‹ Back</button>
+      <span class="subview-title">Work Profile</span>
+    </div>
+
+    <!-- Master Enable Switch -->
+    <div class="glass-card wp-card wp-header-card">
+      <div class="wp-enable-row">
+        <span class="wp-enable-label">Enable Work Profile Schedule</span>
+        <label class="switch">
+          <input type="checkbox" id="wpMasterEnableToggle">
+          <span class="slider round"></span>
+        </label>
+      </div>
+      <!-- Error Panel for anti-cheat validation failures -->
+      <div id="wpErrorMsg" class="qf-error-msg" style="display: none; margin-top: 10px;"></div>
+    </div>
+
+    <!-- Day of Week Pills -->
+    <div class="wp-day-selector">
+      <button class="wp-day-tab" data-day="0">Sun</button>
+      <button class="wp-day-tab" data-day="1">Mon</button>
+      <button class="wp-day-tab" data-day="2">Tue</button>
+      <button class="wp-day-tab" data-day="3">Wed</button>
+      <button class="wp-day-tab" data-day="4">Thu</button>
+      <button class="wp-day-tab" data-day="5">Fri</button>
+      <button class="wp-day-tab" data-day="6">Sat</button>
+    </div>
+
+    <!-- Windows Container -->
+    <div class="glass-card wp-card wp-content-card" style="flex: 1; display: flex; flex-direction: column; min-height: 0;">
+      <div class="wp-windows-header">
+        <span class="wp-windows-title" id="wpActiveDayTitle">Monday Schedule</span>
+        <button id="wpAddWindowBtn" class="wp-add-btn">+ Add Window</button>
+      </div>
+      <div id="wpWindowsList" class="wp-windows-list" style="flex: 1; overflow-y: auto; padding-right: 4px;">
+        <!-- Rendered dynamically -->
+      </div>
+      <div id="wpWindowsEmpty" class="wp-windows-empty" style="display: none;">
+        <span class="wp-empty-icon">🏖️</span>
+        <span class="wp-empty-text">No time blocks scheduled for this day</span>
+      </div>
+    </div>
+
+    <!-- Save Button Container -->
+    <button id="wpSaveBtn" class="qf-action-btn primary" style="margin-top: 8px;">Save Schedule</button>
+  </div>
+
+  <!-- 7. Wellbeing Tools Subview (Full extension takeover). Water Break is Free tier and
+       auto-saves on every change (same idiom as Profile's Exit Behavior radios); Eye Rest
+       (20-20-20) requires Extension Pro — its controls are visually locked and tapping them
+       opens the Pro wall instead of saving, enforced again server-side in background.js. -->
+  <div class="content-wrapper subview" id="wellbeingToolsView" style="display: none;">
+    <div class="subview-header">
+      <button class="subview-back-btn" id="wellbeingToolsBackBtn">‹ Back</button>
+      <span class="subview-title">Wellbeing Tools</span>
+    </div>
+
+    <!-- Water Break (Free) -->
+    <div class="glass-card qf-card">
+      <div class="wp-enable-row">
+        <span class="wp-enable-label">💧 Water Break</span>
+      </div>
+
+      <label class="qf-section-label" style="margin-top: 12px;">Remind me every</label>
+      <div class="qf-duration-presets">
+        <button class="qf-duration-btn" data-mins="15">15 min</button>
+        <button class="qf-duration-btn selected" data-mins="30">30 min</button>
+        <button class="qf-duration-btn" data-mins="60">60 min</button>
+      </div>
+      <div class="qf-custom-duration-row">
+        <input type="number" id="wbWaterCustomMins" class="qf-custom-input" min="5" max="180" placeholder="Custom (5-180 min)">
+      </div>
+
+      <label class="qf-section-label" style="margin-top: 12px;">When it's time</label>
+      <div class="qf-scope-choices">
+        <div class="qf-scope-option selected" id="wbWaterModePause" data-mode="PAUSE_SCREEN">
+          <span class="qf-scope-title">Pause Screen</span>
+          <span class="qf-scope-desc">A calm full-tab reminder you dismiss with one tap</span>
+        </div>
+        <div class="qf-scope-option" id="wbWaterModeNotify" data-mode="NOTIFICATION">
+          <span class="qf-scope-title">Notification</span>
+          <span class="qf-scope-desc">A browser notification with a Done button</span>
+        </div>
+      </div>
+
+      <!-- Water Timer Countdown & Control -->
+      <div id="wbWaterTimerArea" style="display: none; flex-direction: column; align-items: center; gap: 4px; margin-top: 16px;">
+        <span style="font-size: 0.75rem; color: #7889C7; text-transform: uppercase; letter-spacing: 0.05em;">Next Break In</span>
+        <span id="wbWaterCountdown" style="font-size: 1.8rem; font-weight: 700; color: #E2E8F0; font-family: monospace;">30:00</span>
+      </div>
+      <button id="wbWaterStartBtn" class="qf-action-btn primary" style="margin-top: 16px;">Start Water Timer</button>
+    </div>
+
+    <!-- Eye Rest / 20-20-20 (Extension Pro) -->
+    <div class="glass-card qf-card" id="wbEyeCard">
+      <div class="wp-enable-row">
+        <span class="wp-enable-label">👁️ 20-20-20 Rule <span class="nav-card-pro-badge">PRO</span></span>
+        <label class="switch">
+          <input type="checkbox" id="wbEyeEnableToggle">
+          <span class="slider round"></span>
+        </label>
+      </div>
+      <span class="qf-scope-desc" style="display: block; margin-top: 6px;">Every 20 minutes, fixed — that's the rule. Look 20 feet away for 20 seconds.</span>
+
+      <label class="qf-section-label" style="margin-top: 12px;">When it's time</label>
+      <div class="qf-scope-choices">
+        <div class="qf-scope-option selected" id="wbEyeModePause" data-mode="PAUSE_SCREEN">
+          <span class="qf-scope-title">Pause Screen</span>
+          <span class="qf-scope-desc">A calm full-tab reminder with a mandatory 20s hold</span>
+        </div>
+        <div class="qf-scope-option" id="wbEyeModeNotify" data-mode="NOTIFICATION">
+          <span class="qf-scope-title">Notification</span>
+          <span class="qf-scope-desc">A browser notification with a Done button</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- More tools coming soon (non-interactive placeholder) -->
+    <div class="glass-card wb-coming-soon-card">
+      <span class="wb-coming-soon-text">More wellbeing tools coming soon</span>
+    </div>
+
+    <div id="wbErrorMsg" class="qf-error-msg" style="display: none;"></div>
+    <span id="wbSavedMsg" style="display: none; text-align: center; color: var(--color-dust-60); font-size: 0.8rem;">Saved</span>
+  </div>
+
+  <!-- Profile Subview: account, sync, exit-behavior, legal links -->
+  <div class="content-wrapper subview" id="profileView" style="display: none;">
+    <div class="subview-header">
+      <button class="subview-back-btn" id="profileBackBtn">‹ Back</button>
+      <span class="subview-title">Profile</span>
+    </div>
+
+    <!-- Account -->
+    <div class="glass-card profile-account-card">
+      <div class="nav-icon-box profile-avatar-box">
+        <svg class="nav-icon-svg" viewBox="0 0 24 24" fill="none" stroke="url(#gradProfile)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/>
+          <circle cx="12" cy="7" r="4"/>
+        </svg>
+      </div>
+      <div class="profile-account-info">
+        <span class="profile-account-name" id="profileAccountEmail">Not signed in</span>
+        <span class="profile-account-status" id="profileAccountStatus">Free Tier — local only</span>
+      </div>
+    </div>
+
+    <!-- Sync -->
+    <div class="glass-card profile-sync-card">
+      <div class="profile-sync-status">
+        <span class="status-dot" id="profileSyncDot"></span>
+        <span id="profileSyncText">Free Tier</span>
+      </div>
+      <button class="profile-sync-btn" id="profileSyncNowBtn" style="display: none;">Sync now</button>
+    </div>
+
+    <!-- Sign in / Sign out -->
+    <button class="qf-action-btn secondary" id="profileSignInBtn" style="display: none;">Sign In / Link Account</button>
+    <button class="qf-action-btn danger-outline" id="profileSignOutBtn" style="display: none;">Sign Out</button>
+
+    <!-- Verify email (email/password accounts only, shown until verified) — needed to link a
+         website (Dodo Payments) purchase to this account (see /api/entitlement/link). -->
+    <div class="glass-card profile-verify-card" id="profileVerifyCard" style="display: none; flex-direction: column; align-items: stretch;">
+      <div style="display: flex; align-items: center; justify-content: space-between;">
+        <span class="settings-section-label">Verify your email</span>
+        <button class="profile-sync-btn" id="profileVerifyBtn">Send code</button>
+      </div>
+      <div class="qf-error-msg" id="profileVerifyErrorMsg" style="display: none; margin-top: 10px; margin-bottom: 0;"></div>
+    </div>
+
+    <!-- Exit behavior — collapsed summary, reveals the picker on click -->
+    <div class="glass-card profile-exit-card">
+      <div class="profile-exit-summary" id="profileExitSummaryRow">
+        <div class="profile-exit-summary-text">
+          <span class="settings-section-label">When I tap Exit on a block screen</span>
+          <span class="profile-exit-current" id="profileExitCurrentLabel">Close this tab &amp; open a new tab</span>
+        </div>
+        <svg class="nav-card-chevron-icon profile-exit-chevron" id="profileExitChevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>
+      </div>
+      <div class="profile-exit-options" id="profileExitOptions">
+        <div class="profile-exit-options-inner">
+          <div class="settings-option-list">
+            <label class="settings-radio-row">
+              <input type="radio" name="exitBehavior" value="CLOSE_AND_NEW_TAB" id="exitOptCloseNewTab">
+              <span class="settings-radio-title">Close this tab &amp; open a new tab</span>
+            </label>
+            <label class="settings-radio-row">
+              <input type="radio" name="exitBehavior" value="CUSTOM_URL" id="exitOptCustomUrl">
+              <span class="settings-radio-title">Go to a website I choose</span>
+            </label>
+            <label class="settings-radio-row">
+              <input type="radio" name="exitBehavior" value="BACK_HISTORY" id="exitOptBackHistory">
+              <span class="settings-radio-title">Go back to where I was before</span>
+            </label>
+          </div>
+          <input type="text" id="exitCustomUrlInput" class="settings-url-input" placeholder="e.g. mystartpage.com" style="display: none;">
+          <span class="settings-saved-msg" id="settingsSavedMsg" style="display: none;">Saved</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Legal -->
+    <div class="glass-card profile-links-card">
+      <a href="https://getyourlifeback.app/privacypolicy" target="_blank" rel="noopener" class="profile-link-row">
+        <span>Privacy Policy</span>
+        <svg class="nav-card-chevron-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>
+      </a>
+      <a href="https://getyourlifeback.app/terms" target="_blank" rel="noopener" class="profile-link-row">
+        <span>Terms &amp; Conditions</span>
+        <svg class="nav-card-chevron-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>
+      </a>
+    </div>
+  </div>
+
+  <!-- 4. Pro Wall Overlay -->
+  <div class="pro-wall-overlay" id="proWallOverlay" style="display: none;">
+    <div class="glass-card pro-wall-card">
+      <div class="pro-wall-icon">
+        <svg class="pro-wall-icon-svg" viewBox="0 0 24 24" fill="none" stroke="url(#gradLock)" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+          <rect width="18" height="11" x="3" y="11" rx="2" ry="2"/>
+          <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+        </svg>
+      </div>
+      <h2 class="pro-wall-title" id="proWallTitle">Unlock Pro Features</h2>
+      <p class="pro-wall-desc" id="proWallDesc">Upgrade to Pro to access advanced scheduling, timed focus sessions, and full cloud sync with your Android app.</p>
+      
+      <!-- Interactive Benefits Container -->
+      <div class="pro-wall-benefits" id="proWallBenefits">
+        <!-- Injected dynamically by popup.js -->
+      </div>
+
+      <!--
+        FULL SUITE (Extension + GYLB App) tier is intentionally HIDDEN this release
+        (founder 2026-07-03): the app-connected Pro tier ships after the Android app
+        release. Only the Extension-only pricing is shown for now. The suite markup +
+        applyTierLayout("full_pro") path are kept dormant for that later release.
+      -->
+      <div class="pro-section-title">Extension Pro</div>
+      <div class="pro-wall-pricing">
+        <div class="price-option selected" data-tier="extension" data-price-id="ext_monthly">
+          <span class="price-label">Monthly</span>
+          <span class="price-value">$3.99<span class="price-period">/mo</span></span>
+        </div>
+        <div class="price-option" data-tier="extension" data-price-id="ext_yearly">
+          <span class="price-best">SAVE 16%</span>
+          <span class="price-label">Yearly</span>
+          <span class="price-value">$39.99<span class="price-period">/yr</span></span>
+        </div>
+      </div>
+      <div class="qf-error-msg" id="proWallError" style="display: none;"></div>
+
+      <button class="pro-wall-cta" id="proWallUpgradeBtn">Upgrade to Extension Pro</button>
+      <button class="pro-wall-dismiss" id="proWallDismissBtn">Maybe Later</button>
+    </div>
+  </div>
+
+  <!-- Consent Overlay — shown once, before the FIRST sign-in/account-link action, so data
+       collection is disclosed and agreed to before it starts (Chrome Web Store Limited Use
+       policy update, effective 2026-08-01: disclosure must be prominent and precede
+       consent). Signed-out/Free Tier use never triggers this — no account, no network
+       calls, nothing to consent to. -->
+  <div class="pro-wall-overlay" id="consentOverlay" style="display: none;">
+    <div class="glass-card pro-wall-card">
+      <div class="pro-wall-icon">
+        <svg class="pro-wall-icon-svg" viewBox="0 0 24 24" fill="none" stroke="url(#gradProfile)" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/>
+          <circle cx="12" cy="7" r="4"/>
+        </svg>
+      </div>
+      <h2 class="pro-wall-title">Before you sign in</h2>
+      <p class="pro-wall-desc">Linking an account syncs a few things to your own record in Google Firebase so they carry across your devices:</p>
+
+      <ul class="consent-data-list">
+        <li>Your account email</li>
+        <li>The list of websites you've chosen to block</li>
+        <li>Focus/intervention events — the blocked domain, a timestamp, and whether you turned back or continued (never page content or full browsing history)</li>
+        <li>Your protocol/engagement state and the scores computed from it</li>
+      </ul>
+
+      <p class="consent-footnote">We do not sell your data. It's never used for advertising, and never shared with third parties beyond Google Firebase acting as our storage/auth processor. Read the full <a href="https://getyourlifeback.app/privacypolicy" target="_blank" rel="noopener">Privacy Policy</a>.</p>
+
+      <p class="consent-footnote consent-terms-notice">By signing in, you confirm you've read and accept our <a href="https://getyourlifeback.app/terms" target="_blank" rel="noopener">Terms &amp; Conditions</a> and <a href="https://getyourlifeback.app/privacypolicy" target="_blank" rel="noopener">Privacy Policy</a>.</p>
+
+      <button class="pro-wall-cta" id="consentAgreeBtn">Agree &amp; Continue</button>
+      <button class="pro-wall-dismiss" id="consentCancelBtn">Not Now</button>
+    </div>
+  </div>
+
+  <!-- Email-OTP code entry overlay — shown after "Send code" on the Profile screen's
+       "Verify your email" row. Reuses the pro-wall-overlay/pro-wall-card shell (same idiom
+       as consentOverlay above) rather than introducing a new dialog chrome. -->
+  <div class="pro-wall-overlay" id="otpOverlay" style="display: none;">
+    <div class="glass-card pro-wall-card">
+      <div class="pro-wall-icon">
+        <svg class="pro-wall-icon-svg" viewBox="0 0 24 24" fill="none" stroke="url(#gradProfile)" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+          <rect width="20" height="16" x="2" y="4" rx="2"/>
+          <path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/>
+        </svg>
+      </div>
+      <h2 class="pro-wall-title">Enter your code</h2>
+      <p class="pro-wall-desc">We emailed a 6-digit code to your address. Enter it below to verify.</p>
+
+      <input type="text" id="otpCodeInput" class="domain-input" inputmode="numeric" maxlength="6" placeholder="6-digit code" style="width: 100%; box-sizing: border-box; text-align: center; letter-spacing: 4px; font-size: 1.1rem;">
+
+      <div class="auth-error-msg" id="otpErrorMsg" style="display: none; margin-top: 10px;"></div>
+
+      <p class="auth-mode-toggle" id="otpResendRow" style="margin-top: 12px;">Didn't get it? <a href="#" id="otpResendLink">Resend code</a></p>
+
+      <button class="pro-wall-cta" id="otpSubmitBtn" style="margin-top: 12px;">
+        <span id="otpSubmitBtnText">Verify</span>
+        <span class="btn-spinner" id="otpSubmitBtnSpinner" style="display: none;"></span>
+      </button>
+      <button class="pro-wall-dismiss" id="otpCancelBtn">Cancel</button>
+    </div>
+  </div>
+
+  <!-- Javascript Modules -->
+  <script src="config.js"></script>
+  <script src="WorkProfileEngine.js"></script>
+  <script src="WebEntitlementEngine.js"></script>
+  <script src="popup.js"></script>
+  
+  <!-- Hidden Sandbox Iframe for secure remote script execution (reCAPTCHA) -->
+  <iframe id="sandboxIframe" src="sandbox.html" style="display: none;"></iframe>
+</body>
+</html>

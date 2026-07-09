@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Wellbeing Break</title>
+  <link rel="stylesheet" href="blocked.css">
+  <link rel="stylesheet" href="wellbeing_break.css">
+</head>
+<body class="wash-blue">
+
+  <!-- Same layout skeleton as blocked.html's Reflection Gate (screen-container /
+       timer-header / bottom-stack), reusing blocked.css directly so this reads as the same
+       product instead of a bolted-on page. wash-blue (the existing "calm" wash used for the
+       active block timer) rather than wash-red — this is a self-care nudge, not a
+       compliance moment. -->
+  <div class="screen-container">
+    <div class="sub-view active">
+
+      <!-- Countdown bubble — only shown for reminders with a mandatory hold (Eye Rest's
+           actual 20 seconds). Hidden entirely for Water Break (no forced wait). -->
+      <div class="timer-header" id="wbCountdown" style="display: none;">20s</div>
+      <div style="flex: 1;"></div>
+
+      <!-- Icon slot: shows the real asset the moment one exists at assets/wellbeing/, falls
+           back to an inline SVG placeholder until then — swap in eye_rest.gif /
+           water_break.png with no code changes needed. -->
+      <div class="wb-icon-slot">
+        <img id="wbIconImg" class="wb-icon-img" alt="" style="display: none;">
+        <div id="wbIconFallback" class="wb-icon-fallback"></div>
+      </div>
+
+      <div class="wb-title" id="wbTitle">Rest your eyes</div>
+      <div class="wb-message" id="wbMessage">Look at something 20 feet away for 20 seconds.</div>
+
+      <div style="flex: 1;"></div>
+
+      <div class="bottom-stack">
+        <button class="choice-btn solid-white" id="wbDoneBtn" disabled>Done</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="WellbeingRemindersEngine.js"></script>
+  <script src="wellbeing_break.js"></script>
+</body>
+</html>

@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>App Check Sandbox</title>
+  <!-- Load remote reCAPTCHA v3 client library -->
+  <script src="https://www.google.com/recaptcha/api.js?render=6LflrOItAAAAACrTakeT1vZqtMtILS_nbJvl3FgY"></script>
+  <script>
+    // Listen for messages from the main popup context
+    window.addEventListener('message', (event) => {
+      if (event.data && event.data.action === 'GET_RECAPTCHA') {
+        grecaptcha.ready(() => {
+          grecaptcha.execute('6LflrOItAAAAACrTakeT1vZqtMtILS_nbJvl3FgY', { action: 'app_check' })
+            .then((token) => {
+              // Post the token back to the popup
+              event.source.postMessage({ 
+                action: 'RECAPTCHA_TOKEN', 
+                token: token 
+              }, event.origin);
+            })
+            .catch((error) => {
+              event.source.postMessage({ 
+                action: 'RECAPTCHA_ERROR', 
+                error: error.message || error.toString() 
+              }, event.origin);
+            });
+        });
+      }
+    });
+  </script>
+</head>
+<body>
+</body>
+</html>

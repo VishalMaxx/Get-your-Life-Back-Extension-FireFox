@@ -1,0 +1,53 @@
+{
+  "manifest_version": 3,
+  "name": "GetYourLifeBack: Focus & Wellbeing Companion",
+  "version": "1.1.0",
+  "description": "Stay focused and block websites. Schedule focus sessions, track your focus score, practice calm breathing, and reduce screen time.",
+  "action": {
+    "default_popup": "popup.html",
+    "default_icon": "focus_dashboard_icon.jpg"
+  },
+  "background": {
+    "scripts": ["background.js"]
+  },
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "focus-wellbeing@getyourlifeback.app",
+      "strict_min_version": "109.0"
+    }
+  },
+  "permissions": [
+    "storage",
+    "declarativeNetRequest",
+    "alarms",
+    "identity",
+    "notifications",
+    "offscreen"
+  ],
+  "host_permissions": [
+    "<all_urls>"
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": [
+        "blocked.html",
+        "blocked.css",
+        "blocked.js",
+        "fonts/space_grotesk_light.ttf",
+        "fonts/space_grotesk_regular.ttf",
+        "fonts/space_grotesk_medium.ttf",
+        "fonts/space_grotesk_semibold.ttf",
+        "fonts/space_grotesk_bold.ttf"
+      ],
+      "matches": ["<all_urls>"]
+    }
+  ],
+
+  "content_security_policy": {
+    "extension_pages": "script-src 'self'; object-src 'self'; connect-src 'self' https://*.googleapis.com https://*.firebaseapp.com https://securetoken.googleapis.com https://getyourlifeback.app",
+    "sandbox": "sandbox allow-scripts; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://www.google.com/recaptcha/ https://www.gstatic.com/; object-src 'self'"
+  },
+  "sandbox": {
+    "pages": ["sandbox.html"]
+  }
+}

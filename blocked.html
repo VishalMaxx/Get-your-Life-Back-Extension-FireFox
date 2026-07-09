@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>A pause, not a wall</title>
+  <link rel="stylesheet" href="blocked.css">
+</head>
+<body class="wash-red">
+
+  <!-- Centered container mirroring mobile block screen layouts -->
+  <div class="screen-container">
+    
+    <!-- ── VIEW 1: REFLECTION GATE ── -->
+    <div id="viewReflection" class="sub-view active">
+      <!-- Elapsed Timer -->
+      <div class="timer-header" id="reflectionTimer">0s</div>
+
+      <!-- Breathing Circle -->
+      <div class="breathe-container">
+        <div class="breathe-box">
+          <div class="breathe-ring"></div>
+          <div class="breathe-phrase" id="breatheText">Breathe<br>In</div>
+        </div>
+      </div>
+
+      <!-- Actions -->
+      <div class="bottom-stack">
+        <button class="lock-nudge-link" id="blockNudgeBtn">Block Website</button>
+
+        <div class="choice-button-wrapper">
+          <button class="choice-btn translucent" id="continueBtn" disabled>Continue Anyway</button>
+          
+          <div class="score-delta-row">
+            <div class="delta-cell">
+              <div class="delta-val-row">
+                <span class="delta-arrow red">↘</span>
+                <span class="delta-num">2</span>
+              </div>
+              <span class="delta-lbl">Compliance</span>
+            </div>
+            <div class="delta-cell">
+              <div class="delta-val-row">
+                <span class="delta-arrow red">↘</span>
+                <span class="delta-num">0.5</span>
+              </div>
+              <span class="delta-lbl">Sovereignty</span>
+            </div>
+            <div class="delta-cell">
+              <div class="delta-val-row">
+                <span class="delta-arrow red">↗</span>
+                <span class="delta-num">5</span>
+              </div>
+              <span class="delta-lbl">Compulsion</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="choice-button-wrapper">
+          <button class="choice-btn solid-white" id="exitBtn">Exit</button>
+          
+          <div class="score-delta-row">
+            <div class="delta-cell">
+              <div class="delta-val-row">
+                <span class="delta-arrow green">↗</span>
+                <span class="delta-num">2</span>
+              </div>
+              <span class="delta-lbl">Compliance</span>
+            </div>
+            <div class="delta-cell">
+              <div class="delta-val-row">
+                <span class="delta-arrow green">↗</span>
+                <span class="delta-num">0.5</span>
+              </div>
+              <span class="delta-lbl">Sovereignty</span>
+            </div>
+            <div class="delta-cell">
+              <div class="delta-val-row">
+                <span class="delta-arrow green">↘</span>
+                <span class="delta-num">3</span>
+              </div>
+              <span class="delta-lbl">Compulsion</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="footnote-nudge">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14">
+            <circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="2"/>
+            <circle cx="12" cy="7" r="1.2" fill="currentColor"/>
+            <line x1="12" y1="10" x2="12" y2="17" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/>
+          </svg>
+          <span class="footnote-text">Blocking the app gets you more points.</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── VIEW 2: TIME SCROLLER PICKER (For Blocking / Bypassing) ── -->
+    <div id="viewPicker" class="sub-view">
+      <button class="back-btn" id="pickerBackBtn">‹ Back</button>
+      
+      <div class="picker-header">
+        <h1 class="picker-title" id="pickerTitle">Block Website</h1>
+        <div class="app-icon-container">
+          <img src="" alt="App Icon" id="pickerAppIcon" class="picker-app-icon">
+        </div>
+      </div>
+
+      <!-- Vertical Scroll Wheel Picker -->
+      <div class="wheel-picker-container">
+        <div class="wheel-lines"></div>
+        <div class="wheel-scroll" id="minutesWheel">
+          <!-- Filled dynamically in JS -->
+        </div>
+        <div class="wheel-unit">MINS</div>
+      </div>
+
+      <!-- Live updating delta numbers -->
+      <div class="picker-deltas-row">
+        <div class="score-delta-row">
+          <div class="delta-cell">
+            <div class="delta-val-row">
+              <span class="delta-arrow" id="deltaArrowCompliance">↗</span>
+              <span class="delta-num" id="deltaValCompliance">5</span>
+            </div>
+            <span class="delta-lbl">Compliance</span>
+          </div>
+          <div class="delta-cell">
+            <div class="delta-val-row">
+              <span class="delta-arrow" id="deltaArrowSovereignty">↗</span>
+              <span class="delta-num" id="deltaValSovereignty">2.5</span>
+            </div>
+            <span class="delta-lbl">Sovereignty</span>
+          </div>
+          <div class="delta-cell">
+            <div class="delta-val-row">
+              <span class="delta-arrow" id="deltaArrowCompulsion">↘</span>
+              <span class="delta-num" id="deltaValCompulsion">10</span>
+            </div>
+            <span class="delta-lbl">Compulsion</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Usage metrics panel (Visible for Block Mode) -->
+      <div class="usage-panel" id="pickerUsagePanel">
+        <div class="usage-title">App Usage</div>
+        <div class="usage-row">
+          <span class="usage-lbl">Today</span>
+          <span class="usage-val" id="usageToday">2h 3m</span>
+        </div>
+        <div class="usage-row">
+          <span class="usage-lbl">This Week</span>
+          <span class="usage-val" id="usageWeek">5h 6m</span>
+        </div>
+      </div>
+
+      <div class="bottom-stack">
+        <button class="choice-btn solid-white" id="pickerStartBtn">Start Now</button>
+      </div>
+    </div>
+
+    <!-- ── VIEW 3: STRICT TIMER (Active Block Mode) ── -->
+    <div id="viewTimer" class="sub-view">
+      <div class="timer-header-wrap">
+        <h1 class="picker-title" id="timerTitle">Website Blocked</h1>
+        <div class="app-icon-container">
+          <img src="" alt="App Icon" id="timerAppIcon" class="picker-app-icon">
+        </div>
+      </div>
+
+      <!-- Giant Countdown timer -->
+      <div class="countdown-display">
+        <span class="countdown-num" id="timerMinutes">0</span>
+        <span class="countdown-unit">MINS</span>
+        <span class="countdown-num" id="timerSeconds">00</span>
+        <span class="countdown-unit">SEC</span>
+      </div>
+
+      <div class="bottom-stack">
+        <button class="choice-btn solid-white" id="timerExitBtn">Exit</button>
+      </div>
+    </div>
+
+  </div>
+
+  <script src="blocked.js"></script>
+</body>
+</html>
