@@ -2219,7 +2219,8 @@ input:checked + .slider:before {
   transition: transform 0.2s ease;
 }
 
-.profile-exit-card.expanded .profile-exit-chevron {
+.profile-exit-card.expanded .profile-exit-chevron,
+#profileFeatureCard.expanded .profile-exit-chevron {
   transform: rotate(90deg);
 }
 
@@ -2233,11 +2234,13 @@ input:checked + .slider:before {
   padding: 0 20px;
 }
 
-.profile-exit-card.expanded .profile-exit-options {
+.profile-exit-card.expanded .profile-exit-options,
+#profileFeatureCard.expanded .profile-exit-options {
   max-height: 320px;
 }
 
-.profile-exit-card.expanded .profile-exit-options-inner {
+.profile-exit-card.expanded .profile-exit-options-inner,
+#profileFeatureCard.expanded .profile-exit-options-inner {
   padding: 0 20px 16px;
 }
 
