@@ -8,6 +8,11 @@ const wellbeingType = rawType === 'eye_rest'
   ? WellbeingRemindersEngine.TYPE_EYE_REST
   : WellbeingRemindersEngine.TYPE_WATER_BREAK;
 
+if (wellbeingType === WellbeingRemindersEngine.TYPE_EYE_REST) {
+  document.body.classList.remove('wash-blue');
+  document.body.classList.add('wash-red');
+}
+
 const content = WellbeingRemindersEngine.contentFor(wellbeingType);
 
 const titleEl = document.getElementById('wbTitle');
@@ -24,7 +29,7 @@ messageEl.textContent = content.message;
 // show a simple inline SVG placeholder so the screen never looks broken. ──
 const ICON_SVGS = {
   [WellbeingRemindersEngine.TYPE_EYE_REST]: `
-    <svg viewBox="0 0 24 24" fill="none" stroke="#7889C7" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+    <svg viewBox="0 0 24 24" fill="none" stroke="#C77879" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
       <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z"/>
       <circle cx="12" cy="12" r="3.5"/>
     </svg>`,
