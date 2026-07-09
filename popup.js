@@ -2047,10 +2047,10 @@ function setupProfileListeners() {
     });
   }
 
-  // Rate Extension Card
-  const profileRateCard = document.getElementById("profileRateCard");
-  if (profileRateCard) {
-    profileRateCard.addEventListener("click", () => {
+  // Rate Extension Row
+  const profileRateRow = document.getElementById("profileRateRow");
+  if (profileRateRow) {
+    profileRateRow.addEventListener("click", () => {
       const isFirefox = typeof InstallTrigger !== 'undefined' || navigator.userAgent.includes('Firefox');
       let rateUrl = `https://chromewebstore.google.com/detail/focus-wellbeing-companion/${chrome.runtime.id}`;
       if (isFirefox) {
