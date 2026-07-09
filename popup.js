@@ -2052,7 +2052,7 @@ function setupProfileListeners() {
   if (profileRateRow) {
     profileRateRow.addEventListener("click", () => {
       const isFirefox = typeof InstallTrigger !== 'undefined' || navigator.userAgent.includes('Firefox');
-      let rateUrl = `https://chromewebstore.google.com/detail/focus-wellbeing-companion/${chrome.runtime.id}`;
+      let rateUrl = "https://chromewebstore.google.com/detail/focus-wellbeing-companion/aohoaddncblfkcaojgigjhfcpkffefbe";
       if (isFirefox) {
         rateUrl = "https://addons.mozilla.org/en-US/firefox/addon/focus-wellbeing-companion/";
       }
