@@ -245,7 +245,10 @@ function friendlyAuthError(rawMessage) {
 
 // Google Sign-In via Web Auth Flow
 async function signInWithGoogle() {
-  const redirectUri = chrome.identity.getRedirectURL(); // e.g. https://<ext-id>.chromiumapp.org/
+  let redirectUri = chrome.identity.getRedirectURL(); // e.g. https://<ext-id>.chromiumapp.org/
+  if (redirectUri.includes('identity.getfirefox.com')) {
+    redirectUri = redirectUri.replace('https://identity.getfirefox.com/', 'http://127.0.0.1/mozoauth2/');
+  }
   const nonce = Math.random().toString(36).substring(2, 15);
   const clientId = FIREBASE_CONFIG.googleClientId;
   const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${encodeURIComponent(clientId)}&response_type=id_token&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${encodeURIComponent('openid email profile')}&nonce=${nonce}`;
