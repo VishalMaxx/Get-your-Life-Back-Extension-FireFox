@@ -114,14 +114,14 @@ function startReflectionGate() {
   
   // 2. Breathing text loop (4s in, 4s out)
   let breatheCycle = 0;
-  breatheText.innerHTML = 'Breathe<br>In';
+  breatheText.innerText = 'Breathe\nIn';
   
   breatheInterval = setInterval(() => {
     breatheCycle++;
     if (breatheCycle % 2 === 0) {
-      breatheText.innerHTML = 'Breathe<br>In';
+      breatheText.innerText = 'Breathe\nIn';
     } else {
-      breatheText.innerHTML = 'Breathe<br>Out';
+      breatheText.innerText = 'Breathe\nOut';
     }
   }, 4000);
   
@@ -191,7 +191,7 @@ function openPicker(mode) {
 
 function buildScrollWheel() {
   const wheel = document.getElementById('minutesWheel');
-  wheel.innerHTML = '';
+  wheel.replaceChildren();
   
   // Populate numbers 1 to 300
   for (let i = 1; i <= 300; i++) {

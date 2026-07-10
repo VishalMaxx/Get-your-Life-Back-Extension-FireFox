@@ -805,42 +805,16 @@ function startProtocolTimer() {
   }, 1000);
 }
 
-// Request App Check token from reCAPTCHA v3 and send to background
+// Request App Check token from custom provider and send to background
 function refreshAppCheck() {
   if (isExtension) {
-    const iframe = document.getElementById('sandboxIframe');
-    if (!iframe) return;
-
-    // Set up one-time listener for the sandbox message response
-    const handleSandboxMessage = (event) => {
-      if (event.data && event.data.action === 'RECAPTCHA_TOKEN') {
-        const token = event.data.token;
-        chrome.runtime.sendMessage({ action: "SET_RECAPTCHA_TOKEN", token }, (response) => {
-          if (response && response.success) {
-            console.log("App Check token successfully refreshed from popup via sandbox.");
-          } else {
-            console.warn("App Check refresh failed:", response ? response.error : "unknown error");
-          }
-        });
-        window.removeEventListener('message', handleSandboxMessage);
-      } else if (event.data && event.data.action === 'RECAPTCHA_ERROR') {
-        console.error("reCAPTCHA failed in sandbox:", event.data.error);
-        window.removeEventListener('message', handleSandboxMessage);
+    chrome.runtime.sendMessage({ action: "REFRESH_APP_CHECK" }, (response) => {
+      if (response && response.success) {
+        console.log("App Check token successfully refreshed from popup via custom provider.");
+      } else {
+        console.warn("App Check refresh failed:", response ? response.error : "unknown error");
       }
-    };
-
-    window.addEventListener('message', handleSandboxMessage);
-
-    // Send a message to the iframe to run reCAPTCHA
-    const postToSandbox = () => {
-      iframe.contentWindow.postMessage({ action: 'GET_RECAPTCHA' }, '*');
-    };
-
-    if (iframe.contentDocument && iframe.contentDocument.readyState === 'complete') {
-      postToSandbox();
-    } else {
-      iframe.onload = postToSandbox;
-    }
+    });
   }
 }
 
@@ -856,17 +830,24 @@ let qfWhitelist = [];
 function renderQfWhitelistPills() {
   const container = document.getElementById("qfWhitelistDomains");
   if (!container) return;
-  container.innerHTML = qfWhitelist.map(domain => `
-    <span class="wp-site-pill">
-      ${domain}
-      <button class="wp-site-remove" data-domain="${domain}">×</button>
-    </span>
-  `).join('');
-  container.querySelectorAll(".wp-site-remove").forEach(btn => {
+  container.replaceChildren();
+  qfWhitelist.forEach(domain => {
+    const span = document.createElement("span");
+    span.className = "wp-site-pill";
+    // Using textContent to prevent any potential HTML injection
+    span.appendChild(document.createTextNode(domain + " "));
+    
+    const btn = document.createElement("button");
+    btn.className = "wp-site-remove";
+    btn.setAttribute("data-domain", domain);
+    btn.textContent = "×";
     btn.addEventListener("click", () => {
-      qfWhitelist = qfWhitelist.filter(d => d !== btn.getAttribute("data-domain"));
+      qfWhitelist = qfWhitelist.filter(d => d !== domain);
       renderQfWhitelistPills();
     });
+    
+    span.appendChild(btn);
+    container.appendChild(span);
   });
 }
 
@@ -879,9 +860,13 @@ function renderQfActiveWhitelistPills(domains) {
     card.style.display = "none";
     return;
   }
-  container.innerHTML = domains.map(domain => `
-    <span class="wp-site-pill qf-locked-pill">${domain}</span>
-  `).join('');
+  container.replaceChildren();
+  domains.forEach(domain => {
+    const span = document.createElement("span");
+    span.className = "wp-site-pill qf-locked-pill";
+    span.textContent = domain;
+    container.appendChild(span);
+  });
   card.style.display = "block";
 }
 
@@ -1652,14 +1637,6 @@ function renderWorkProfileUI() {
         lockBadgeHtml = `<div class="wp-window-lock-badge-row"><span class="wp-window-lock-badge">🔒 Locked Live</span></div>`;
       }
       
-      // Generate site pills
-      const sitePillsHtml = (w.sites || []).map(site => `
-        <span class="wp-site-pill">
-          ${site}
-          <button class="wp-site-remove" data-site="${site}" ${isLiveFocus ? "disabled" : ""}>×</button>
-        </span>
-      `).join('');
-      
       // Mode options
       const modeSelectHtml = `
         <select class="wp-mode-select" ${isLiveFocus ? "disabled" : ""}>
@@ -1686,9 +1663,7 @@ function renderWorkProfileUI() {
         </div>
         <div class="wp-sites-section">
           <span class="wp-sites-label">${w.mode === 'FOCUS' ? 'Allowed Websites' : 'Blocked Websites'}</span>
-          <div class="wp-sites-container">
-            ${sitePillsHtml}
-          </div>
+          <div class="wp-sites-container"></div>
           <div class="wp-add-site-row">
             <input type="text" class="wp-new-site-input" placeholder="e.g. github.com" ${isLiveFocus ? "disabled" : ""}>
             <button class="wp-add-site-btn" ${isLiveFocus ? "disabled" : ""}>+</button>
@@ -1696,6 +1671,29 @@ function renderWorkProfileUI() {
         </div>
         <button class="wp-delete-window-btn" ${isLiveFocus ? "disabled" : ""}>Remove Window</button>
       `;
+      
+      // Populate site pills programmatically to ensure XSS safety and satisfy AMO reviewers
+      const siteContainer = item.querySelector(".wp-sites-container");
+      if (siteContainer) {
+        (w.sites || []).forEach(site => {
+          const span = document.createElement("span");
+          span.className = "wp-site-pill";
+          span.appendChild(document.createTextNode(site + " "));
+          
+          const btn = document.createElement("button");
+          btn.className = "wp-site-remove";
+          btn.setAttribute("data-site", site);
+          if (isLiveFocus) btn.disabled = true;
+          btn.textContent = "×";
+          btn.addEventListener("click", () => {
+            w.sites = (w.sites || []).filter(s => s !== site);
+            renderWorkProfileUI();
+          });
+          
+          span.appendChild(btn);
+          siteContainer.appendChild(span);
+        });
+      }
       
       // Bind inline change handlers
       
@@ -1715,16 +1713,6 @@ function renderWorkProfileUI() {
       modeSelect.addEventListener("change", (e) => {
         w.mode = e.target.value;
         renderWorkProfileUI(); // Re-render to update sites label ("Allowed" vs "Blocked")
-      });
-      
-      // Site Remove
-      const removeBtns = item.querySelectorAll(".wp-site-remove");
-      removeBtns.forEach(btn => {
-        btn.addEventListener("click", () => {
-          const siteToRemove = btn.getAttribute("data-site");
-          w.sites = (w.sites || []).filter(s => s !== siteToRemove);
-          renderWorkProfileUI();
-        });
       });
       
       // Site Add

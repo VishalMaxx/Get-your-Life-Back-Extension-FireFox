@@ -247,11 +247,9 @@ function friendlyAuthError(rawMessage) {
 
 // Google Sign-In via Web Auth Flow
 async function signInWithGoogle() {
-  let redirectUri = chrome.identity.getRedirectURL(); // e.g. https://<ext-id>.chromiumapp.org/
-  if (redirectUri.includes('identity.getfirefox.com')) {
-    const uuid = redirectUri.split('.')[0].replace('https://', '');
-    redirectUri = `http://127.0.0.1/mozoauth2/${uuid}`;
-  }
+  const redirectUri = chrome.identity.getRedirectURL(); // e.g. https://identity.getfirefox.com/[uuid]
+  console.log("Launching Google OAuth web flow with Redirect URI:", redirectUri);
+  console.log("IMPORTANT: Ensure this redirect URI is registered in Google Cloud Console and added to Firebase Authorized Domains.");
   const nonce = Math.random().toString(36).substring(2, 15);
   const clientId = FIREBASE_CONFIG.googleClientId;
   const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${encodeURIComponent(clientId)}&response_type=id_token&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${encodeURIComponent('openid email profile')}&nonce=${nonce}`;
@@ -276,10 +274,7 @@ async function signInWithGoogle() {
 
         // Exchange Google ID Token for Firebase credentials
         const exchangeUrl = `https://identitytoolkit.googleapis.com/v1/accounts:signInWithIdp?key=${FIREBASE_CONFIG.apiKey}`;
-        let firebaseRequestUri = redirectUri;
-        if (redirectUri.includes('127.0.0.1/mozoauth2/')) {
-          firebaseRequestUri = `https://${FIREBASE_CONFIG.projectId}.firebaseapp.com/__/auth/handler`;
-        }
+        const firebaseRequestUri = redirectUri;
 
         const response = await fetch(exchangeUrl, {
           method: 'POST',
@@ -380,15 +375,15 @@ async function getValidIdToken() {
 
 // ── FIREBASE APP CHECK TOKEN EXCHANGE ──
 
-// Exchange reCAPTCHA v3 token for an App Check token
-async function exchangeAppCheckToken(recaptchaToken) {
+// Exchange custom token for an App Check token
+async function exchangeAppCheckToken(customToken) {
   try {
-    console.log("Exchanging reCAPTCHA token for App Check token...");
-    const url = `https://firebaseappcheck.googleapis.com/v1/projects/${FIREBASE_CONFIG.projectId}/apps/${FIREBASE_CONFIG.appId}:exchangeRecaptchaV3Token?key=${FIREBASE_CONFIG.apiKey}`;
+    console.log("Exchanging custom token for App Check token...");
+    const url = `https://firebaseappcheck.googleapis.com/v1/projects/${FIREBASE_CONFIG.projectId}/apps/${FIREBASE_CONFIG.appId}:exchangeCustomToken?key=${FIREBASE_CONFIG.apiKey}`;
     const response = await fetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ recaptchaV3Token: recaptchaToken })
+      body: JSON.stringify({ customToken: customToken })
     });
 
     const data = await response.json();
@@ -396,8 +391,8 @@ async function exchangeAppCheckToken(recaptchaToken) {
       throw new Error(data.error?.message || "App Check token exchange failed");
     }
 
-    // TTL matches standard response (e.g. "86400s" or "3600s"). Parse to seconds.
-    const ttlSeconds = parseInt(data.ttl) || 86400; 
+    // TTL matches standard response (e.g. "1800s"). Parse to seconds.
+    const ttlSeconds = parseInt(data.ttl) || 1800; 
     const expiry = Date.now() + ttlSeconds * 1000;
 
     await chrome.storage.local.set({
@@ -413,13 +408,68 @@ async function exchangeAppCheckToken(recaptchaToken) {
   }
 }
 
-// Get cached or request active App Check token
+// Fetch a new custom App Check token from the Cloudflare Worker and exchange it
+async function refreshAppCheckToken() {
+  try {
+    console.log("Refreshing App Check token via Custom Provider...");
+    const idToken = await getValidIdToken();
+    if (!idToken) {
+      console.warn("Cannot refresh App Check: User is signed out.");
+      return null;
+    }
+
+    const baseUrl = WebEntitlementEngine.WEB_ENTITLEMENT_BASE_URL || 'https://getyourlifeback.app';
+    const response = await fetch(`${baseUrl}/api/appcheck/token`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${idToken}`
+      },
+      body: JSON.stringify({ appId: FIREBASE_CONFIG.appId })
+    });
+
+    if (!response.ok) {
+      const errData = await response.json().catch(() => ({}));
+      throw new Error(errData.error || `HTTP error ${response.status}`);
+    }
+
+    const data = await response.json();
+    const customToken = data.customToken;
+    if (!customToken) {
+      throw new Error("No customToken returned from backend.");
+    }
+
+    const attestationToken = await exchangeAppCheckToken(customToken);
+    return attestationToken;
+  } catch (error) {
+    console.error("Failed to refresh App Check token:", error);
+    throw error;
+  }
+}
+
+// Get cached or request active App Check token (automatically refreshes if expired or missing)
 async function getValidAppCheckToken() {
   const result = await chrome.storage.local.get(['appCheckToken', 'appCheckExpiry']);
-  if (result.appCheckToken && result.appCheckExpiry && result.appCheckExpiry > Date.now()) {
+  const now = Date.now();
+  // Reuse cached token if it has at least 5 minutes of validity remaining
+  if (result.appCheckToken && result.appCheckExpiry && (result.appCheckExpiry - now) > 5 * 60 * 1000) {
     return result.appCheckToken;
   }
-  return null; // App check token needs refresh from client pages
+
+  // Try to refresh token
+  try {
+    const token = await refreshAppCheckToken();
+    if (token) return token;
+  } catch (error) {
+    console.error("Auto App Check token refresh failed:", error);
+  }
+
+  // Fallback to expired token if we couldn't refresh, better than nothing
+  if (result.appCheckToken) {
+    console.warn("Using expired App Check token as fallback.");
+    return result.appCheckToken;
+  }
+  return null; 
 }
 
 // ── FIRESTORE REST API CODECS (LWW COMPATIBLE) ──
@@ -2545,9 +2595,9 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     return true;
   }
 
-  // Store reCAPTCHA Token & Exchange
-  if (request.action === "SET_RECAPTCHA_TOKEN") {
-    exchangeAppCheckToken(request.token)
+  // Trigger App Check Token Refresh (Custom Provider)
+  if (request.action === "REFRESH_APP_CHECK") {
+    refreshAppCheckToken()
       .then(token => sendResponse({ success: true, appCheckToken: token }))
       .catch(err => sendResponse({ success: false, error: err.message }));
     return true;

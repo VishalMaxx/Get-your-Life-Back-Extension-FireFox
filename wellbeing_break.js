@@ -38,7 +38,10 @@ const ICON_SVGS = {
       <path d="M12 2.5s7 8.2 7 12.7a7 7 0 0 1-14 0C5 10.7 12 2.5 12 2.5Z"/>
     </svg>`,
 };
-iconFallback.innerHTML = ICON_SVGS[wellbeingType];
+const parser = new DOMParser();
+const doc = parser.parseFromString(ICON_SVGS[wellbeingType], "image/svg+xml");
+const svgEl = doc.documentElement;
+iconFallback.replaceChildren(svgEl);
 
 const assetFile = wellbeingType === WellbeingRemindersEngine.TYPE_EYE_REST ? 'eye_rest.gif' : 'water_break.png';
 const preload = new Image();
